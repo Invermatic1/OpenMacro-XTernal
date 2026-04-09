@@ -93,8 +93,8 @@ GetDefaultSettings() {
     )
 
     defaults["update"] := Map(
-        "auto_update", 1,
-        "show_confirmation", 0
+        "auto_update", 0,
+        "show_confirmation", 1
     )
 
     return defaults
