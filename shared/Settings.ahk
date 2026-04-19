@@ -81,12 +81,14 @@ ListConfigs() {
     return configs
 }
 
-SaveConfig(name) {
+SaveConfig(name, useDefaults := false) {
     global SETTINGS
+
+    data := useDefaults ? GetDefaultSettings()["main"] : SETTINGS["main"]
 
     try {
         file := FileOpen(CONFIGS_DIR "\" name ".json", "w")
-        file.Write(JSON.stringify(SETTINGS["main"], 4))
+        file.Write(JSON.stringify(data, 4))
         file.Close()
     } catch as err {
         MsgBox("Failed to save config: " err.Message, "Config Error")
@@ -107,6 +109,14 @@ LoadConfig(name) {
             MAIN[key] := value
         }
 
+        defaults := GetDefaultSettings()["main"]
+        for key, defaultVal in defaults {
+            if (!MAIN.Has(key)) {
+                MAIN[key] := defaultVal
+                SETTINGS["main"][key] := defaultVal
+            }
+        }
+
         SETTINGS["last_config"] := name
         SaveSettingsFile()
         ReloadMacro()
@@ -116,8 +126,14 @@ LoadConfig(name) {
 }
 
 DeleteConfig(name) {
+    global SETTINGS
+
     try {
         FileDelete(CONFIGS_DIR "\" name ".json")
+        if (SETTINGS["last_config"] = name) {
+            SETTINGS["last_config"] := ""
+            SaveSettingsFile()
+        }
     } catch as err {
         MsgBox("Failed to delete config: " err.Message, "Config Error")
     }

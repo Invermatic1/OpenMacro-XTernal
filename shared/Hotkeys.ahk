@@ -3,21 +3,27 @@
 StartMacro() {
     global Macro
 
-    Macro.cycleEnabled := !Macro.cycleEnabled
-
     if (Macro.cycleEnabled) {
-        if (Macro.phase = "OFF" || Macro.phase = "DONE" || Macro.phase = "FAILED")
-            StartMacroCycle()
-    } else {
+        Macro.cycleEnabled := false
         StopMacroCycle("OFF")
+        return
     }
+
+    if !EnsureRobloxReady(true, true)
+        return
+
+    UpdateRobloxUiState()
+    Macro.cycleEnabled := true
+
+    if (Macro.phase = "OFF" || Macro.phase = "DONE" || Macro.phase = "FAILED")
+        StartMacroCycle()
 }
 
 FixRoblox() {
-    global RBLX_PID, RBLX_BASE, H_PROCESS
-
     pid := GetRobloxPID()
     if (!pid) {
+        ResetRobloxAttachmentState()
+        UpdateRobloxUiState()
         MsgBox("Roblox not found.")
         return
     }
@@ -32,20 +38,13 @@ FixRoblox() {
         MsgBox("Version check failed: " err.Message "`n`nProceeding with re-attach.", "Version Warning")
     }
 
-    H_PROCESS := 0
-    RBLX_PID := pid
-    RBLX_BASE := GetProcessBase(pid)
-
-    if (!RBLX_BASE) {
-        MsgBox("Failed to attach to Roblox.")
-        return
-    }
-
     try {
-        LoadOffsets()
+        AttachToRoblox(pid)
+        UpdateRobloxUiState()
         MsgBox("Roblox attachment refreshed.")
     } catch as err {
-        MsgBox("Offset load failed: " err.Message)
+        UpdateRobloxUiState()
+        MsgBox(err.Message, "Roblox Attachment")
     }
 }
 

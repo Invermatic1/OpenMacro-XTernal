@@ -14,16 +14,74 @@ CreateFishingMacro() {
         castReleasedAt: 0,
         castBarSeen: false,
         fishingLostAt: 0,
+        completionReached: false,
+        outcomeResolved: false,
+        fishCaughtCount: 0,
+        fishLostCount: 0,
         doneAt: 0,
         shakingIntervalMs: 25,
         lastShakedAt: 0,
+        lastActionAt: 0,
         ActivatedUiNav: false,
-        cycleEnabled: false
+        cycleEnabled: false,
+        totemState: "IDLE",
+        totemRetryCount: 0,
+        totemWaitStartedAt: 0,
+        lastTotemSuccessAt: 0,
+        lastTotemAttemptAt: 0,
+        totemPending: false,
+        totemBlockedUntilCatchEnd: false,
+        totemNightCovered: false,
+        totemNeedsRodReequip: false,
+        totemNeedsSettleDelay: false
     }
+}
+
+ResolveCastThreshold() {
+    global MAIN
+    switch MAIN["cast_mode"] {
+        case "short":  return 28.0
+        case "custom": return Max(1.0, Min(100.0, MAIN["cast_power_custom"] + 0.0))
+        default:       return 96.0
+    }
+}
+
+InitializeCastCycle() {
+    global Macro, MAIN
+
+    if (!Macro.ActivatedUiNav) {
+        SendInput("\")
+        Macro.ActivatedUiNav := true
+        Sleep(50)
+    }
+
+    Macro.powerPercent := ""
+    Macro.progressPercent := ""
+    Macro.castStartedAt := A_TickCount
+    Macro.castReleasedAt := 0
+    Macro.castBarSeen := false
+    Macro.fishingLostAt := 0
+    Macro.completionReached := false
+    Macro.outcomeResolved := false
+    Macro.doneAt := 0
+    Macro.lastShakedAt := 0
+    Macro.lastActionAt := 0
+    Macro.castThreshold := ResolveCastThreshold()
+    Macro.castWaitTimeoutMs := MAIN["cast_timeout_ms"]
+    Macro.fishingEndGraceMs := MAIN["fishing_end_grace_ms"]
+    Macro.shakingIntervalMs := MAIN["shake_interval_ms"]
+    Macro.phase := "CASTING"
+
+    UpdateMacroStatus("CASTING", "---", "---")
 }
 
 MacroLoop() {
     global Macro
+
+    if (UpdateAutoTotem()) {
+        UpdateMacroStatus(GetMacroDisplayStatus(), "---", "---")
+        return
+    }
 
     switch Macro.phase {
         case "CASTING":
@@ -45,35 +103,25 @@ MacroLoop() {
     }
 
     UpdateMacroStatus(
-        Macro.phase,
+        GetMacroDisplayStatus(),
         (Macro.powerPercent = "" ? "---" : Macro.powerPercent "%"),
         (Macro.progressPercent = "" ? "---" : Macro.progressPercent "%")
     )
 }
 
 StartMacroCycle() {
-    global Macro, Controller
+    global Macro, Controller, ROD
 
-    ReleaseMouse()
-    Controller.Reset()
-
-    if (!Macro.ActivatedUiNav) {
-        SendInput("\")
-        Macro.ActivatedUiNav := true
-        Sleep(50)
+    if (Macro.phase = "OFF") {
+        Macro.totemNightCovered := false
+        Macro.totemPending := false
+        Macro.totemBlockedUntilCatchEnd := false
     }
 
-    Macro.powerPercent := ""
-    Macro.progressPercent := ""
-    Macro.castStartedAt := A_TickCount
-    Macro.castReleasedAt := 0
-    Macro.castBarSeen := false
-    Macro.fishingLostAt := 0
-    Macro.doneAt := 0
-    Macro.lastShakedAt := 0
-    Macro.phase := "CASTING"
-
-    UpdateMacroStatus("CASTING", "---", "---")
+    Controller := IsPinionRodText(ROD) ? PinionController() : FishingController()
+    ReleaseMouse()
+    Controller.Reset()
+    InitializeCastCycle()
 }
 
 StopMacroCycle(nextPhase := "OFF") {
@@ -90,21 +138,337 @@ StopMacroCycle(nextPhase := "OFF") {
     Macro.castBarSeen := false
     Macro.progressPercent := ""
     Macro.fishingLostAt := 0
+    Macro.completionReached := false
+    Macro.outcomeResolved := false
     Macro.lastShakedAt := 0
+    Macro.lastActionAt := 0
     Macro.doneAt := (nextPhase = "DONE") ? A_TickCount : 0
     Macro.phase := nextPhase
 
+    if (nextPhase = "DONE")
+        Macro.totemBlockedUntilCatchEnd := false
+    else if (nextPhase = "OFF") {
+        if (Macro.totemState != "IDLE" && Macro.totemNeedsRodReequip)
+            SelectHotbarSlot("1")
+        ResetAutoTotemControl()
+        Macro.totemNightCovered := false
+    }
+
     UpdateMacroStatus(
-        Macro.phase,
+        GetMacroDisplayStatus(),
         "---",
         (nextPhase = "DONE" && finalProgress != "" ? finalProgress "%" : "---")
     )
 }
 
-UpdateCastingPhase() {
+GetMacroDisplayStatus() {
+    global Macro
+    return (Macro.totemState != "IDLE") ? Macro.totemState : Macro.phase
+}
+
+ResetAutoTotemControl() {
     global Macro
 
+    Macro.totemState := "IDLE"
+    Macro.totemRetryCount := 0
+    Macro.totemWaitStartedAt := 0
+    Macro.totemPending := false
+    Macro.totemBlockedUntilCatchEnd := false
+    Macro.totemNeedsRodReequip := false
+    Macro.totemNeedsSettleDelay := false
+}
+
+IsAutoTotemRuntimeEnabled() {
+    global MAIN
+    return MAIN["auto_totem_enabled"] && (MAIN["auto_totem_name"] = "Aurora Totem")
+}
+
+GetAutoTotemIntervalMs() {
+    global MAIN
+    return Max(1, MAIN["auto_totem_interval_sec"] + 0) * 1000
+}
+
+GetAutoTotemSettleMs() {
+    global MAIN
+    return Max(0, MAIN["post_catch_delay_ms"] + 0)
+}
+
+GetAutoTotemPostEquipMs() {
+    global MAIN
+    return Max(0, MAIN["post_totem_delay_ms"] + 0)
+}
+
+IsAutoTotemBoundary() {
+    global Macro
+    return (Macro.phase = "CASTING" && !Macro.isHolding && !Macro.castBarSeen)
+}
+
+IsAutoTotemDue() {
+    global MAIN, Macro
+
+    if !IsAutoTotemRuntimeEnabled()
+        return false
+
+    if (MAIN["auto_totem_mode"] = "interval") {
+        referenceAt := Macro.lastTotemSuccessAt
+        if (Macro.lastTotemAttemptAt > referenceAt)
+            referenceAt := Macro.lastTotemAttemptAt
+
+        return (!referenceAt || (A_TickCount - referenceAt) >= GetAutoTotemIntervalMs())
+    }
+
+    if (Macro.totemNightCovered) {
+        cycleText := StrLower(GetWorldStatusText("4_cycle"))
+        if (cycleText = "" || InStr(cycleText, "night"))
+            return false
+
+        Macro.totemNightCovered := false
+        AutoTotemDebugLog("night coverage expired; cycle left night")
+        AutoTotemDebugProbe("expire probe")
+    }
+
+    return true
+}
+
+UpdateAutoTotem() {
+    global Macro, Controller
+
+    if !IsAutoTotemRuntimeEnabled() {
+        if (Macro.totemState != "IDLE" || Macro.totemPending || Macro.totemBlockedUntilCatchEnd) {
+            ReleaseMouse()
+            Controller.Reset()
+            if (Macro.totemState != "IDLE" && Macro.totemNeedsRodReequip)
+                SelectHotbarSlot("1")
+            AutoTotemDebugLog("auto totem runtime disabled, clearing control")
+            ResetAutoTotemControl()
+        }
+        return false
+    }
+
+    if (Macro.totemState != "IDLE") {
+        Macro.powerPercent := ""
+        Macro.progressPercent := ""
+        ReleaseMouse()
+        Controller.Reset()
+        UpdateAutoTotemState()
+        return true
+    }
+
+    if !Macro.cycleEnabled
+        return false
+
+    if (Macro.totemPending && IsAutoTotemBoundary()) {
+        AutoTotemDebugLog("pending auto totem resumed at safe boundary")
+        BeginAutoTotemWorkflow()
+        return true
+    }
+
+    if (Macro.totemBlockedUntilCatchEnd)
+        return false
+
+    if (IsAutoTotemDue()) {
+        if (IsAutoTotemBoundary()) {
+            AutoTotemDebugLog("auto totem due at safe boundary")
+            BeginAutoTotemWorkflow()
+            return true
+        }
+
+        if !Macro.totemPending {
+            AutoTotemDebugLog("auto totem due during active cycle, deferring to boundary")
+            if (Macro.phase != "OFF")
+                Macro.totemNeedsSettleDelay := true
+        }
+
+        Macro.totemPending := true
+    }
+
+    return false
+}
+
+BeginAutoTotemWorkflow() {
+    global Macro, Controller
+
+    Macro.powerPercent := ""
     Macro.progressPercent := ""
+    Macro.totemPending := false
+    Macro.totemRetryCount := 0
+    Macro.totemWaitStartedAt := 0
+    Macro.lastTotemAttemptAt := A_TickCount
+    Macro.totemNeedsRodReequip := false
+
+    ReleaseMouse()
+    Controller.Reset()
+    AutoTotemDebugLog("begin auto totem workflow")
+    if (Macro.totemNeedsSettleDelay) {
+        Macro.totemState := "TOTEM_SETTLE"
+        Macro.totemWaitStartedAt := A_TickCount
+        AutoTotemDebugLog("waiting post-catch input lock before totem use")
+        return
+    }
+
+    RunAutoTotemWorkflowStep()
+}
+
+RunAutoTotemWorkflowStep() {
+    global Macro
+
+    AutoTotemDebugProbe("workflow branch probe")
+
+    if (IsAuroraActive()) {
+        AutoTotemDebugLog("aurora already active, completing workflow")
+        CompleteAutoTotemWorkflow(true)
+        return
+    }
+
+    if (IsNightCycle()) {
+        AutoTotemDebugLog("night detected, using aurora totem")
+        if (!TryUseAutoTotemItem("Aurora Totem")) {
+            CompleteAutoTotemWorkflow(false)
+            return
+        }
+
+        Macro.totemState := "TOTEM_WAIT_AURORA"
+        Macro.totemWaitStartedAt := A_TickCount
+        return
+    }
+
+    AutoTotemDebugLog("night not detected, using sundial totem")
+    if (!TryUseAutoTotemItem("Sundial Totem")) {
+        CompleteAutoTotemWorkflow(false)
+        return
+    }
+
+    Macro.totemState := "TOTEM_WAIT_NIGHT"
+    Macro.totemWaitStartedAt := A_TickCount
+}
+
+UpdateAutoTotemState() {
+    global Macro
+
+    if (IsAuroraActive()) {
+        AutoTotemDebugLog("aurora detected while waiting")
+        CompleteAutoTotemWorkflow(true)
+        return
+    }
+
+    switch Macro.totemState {
+        case "TOTEM_SETTLE":
+            if ((A_TickCount - Macro.totemWaitStartedAt) < GetAutoTotemSettleMs())
+                return
+
+            Macro.totemNeedsSettleDelay := false
+            Macro.totemWaitStartedAt := 0
+            AutoTotemDebugLog("post-catch input lock cleared")
+            RunAutoTotemWorkflowStep()
+            return
+
+        case "TOTEM_WAIT_NIGHT":
+            if (IsNightCycle()) {
+                Macro.totemRetryCount := 0
+                AutoTotemDebugLog("night detected after sundial, using aurora totem")
+                AutoTotemDebugProbe("night detected probe")
+
+                if (!TryUseAutoTotemItem("Aurora Totem")) {
+                    CompleteAutoTotemWorkflow(false)
+                    return
+                }
+
+                Macro.totemState := "TOTEM_WAIT_AURORA"
+                Macro.totemWaitStartedAt := A_TickCount
+                return
+            }
+
+            if ((A_TickCount - Macro.totemWaitStartedAt) < GetAutoTotemWaitMs())
+                return
+
+            if (Macro.totemRetryCount >= 1) {
+                AutoTotemDebugLog("night wait timed out after retry, failing workflow")
+                AutoTotemDebugProbe("night timeout final probe")
+                CompleteAutoTotemWorkflow(false)
+                return
+            }
+
+            AutoTotemDebugLog("night wait timed out, retrying sundial use")
+            AutoTotemDebugProbe("night timeout retry probe")
+            if (!TryUseAutoTotemItem("Sundial Totem")) {
+                CompleteAutoTotemWorkflow(false)
+                return
+            }
+
+            Macro.totemRetryCount += 1
+            Macro.totemWaitStartedAt := A_TickCount
+
+        case "TOTEM_WAIT_AURORA":
+            if ((A_TickCount - Macro.totemWaitStartedAt) < GetAutoTotemWaitMs())
+                return
+
+            if (Macro.totemRetryCount >= 1) {
+                AutoTotemDebugLog("aurora wait timed out after retry, failing workflow")
+                AutoTotemDebugProbe("aurora timeout final probe")
+                CompleteAutoTotemWorkflow(false)
+                return
+            }
+
+            AutoTotemDebugLog("aurora wait timed out, retrying aurora use")
+            AutoTotemDebugProbe("aurora timeout retry probe")
+            if (!TryUseAutoTotemItem("Aurora Totem")) {
+                CompleteAutoTotemWorkflow(false)
+                return
+            }
+
+            Macro.totemRetryCount += 1
+            Macro.totemWaitStartedAt := A_TickCount
+    }
+}
+
+TryUseAutoTotemItem(itemName) {
+    global Macro
+
+    if !TryUseHotbarItem(itemName)
+        return false
+
+    Macro.totemNeedsRodReequip := true
+    return true
+}
+
+CompleteAutoTotemWorkflow(success := false) {
+    global Macro, MAIN
+
+    needsRodReequip := Macro.totemNeedsRodReequip
+    AutoTotemDebugLog("complete auto totem workflow success=" success " reEquip=" needsRodReequip)
+
+    if (success) {
+        Macro.lastTotemSuccessAt := A_TickCount
+        Macro.totemNightCovered := true
+        AutoTotemDebugLog("marked current night as covered")
+    }
+
+    ResetAutoTotemControl()
+
+    if (needsRodReequip) {
+        EnsureRodEquipped()
+        postEquipMs := GetAutoTotemPostEquipMs()
+        if (postEquipMs > 0)
+            Sleep(postEquipMs)
+    }
+
+    if (!success && MAIN["auto_totem_mode"] = "expire")
+        Macro.totemBlockedUntilCatchEnd := true
+
+    if (Macro.cycleEnabled && Macro.phase = "CASTING") {
+        AutoTotemDebugLog("reinitializing cast cycle after auto totem")
+        InitializeCastCycle()
+    }
+}
+
+UpdateCastingPhase() {
+    global Macro, MAIN
+
+    Macro.progressPercent := ""
+
+    if (MAIN["pre_cast_delay_ms"] > 0 && (A_TickCount - Macro.castStartedAt) < MAIN["pre_cast_delay_ms"])
+        return
+
     HoldMouse()
 
     if (!Macro.castStartedAt)
@@ -115,7 +479,7 @@ UpdateCastingPhase() {
         Macro.powerPercent := "---"
 
         if ((A_TickCount - Macro.castStartedAt) >= Macro.castWaitTimeoutMs)
-            StartMacroCycle()
+            MAIN["cast_on_timeout"] ? StartMacroCycle() : StopMacroCycle("OFF")
 
         return
     }
@@ -133,11 +497,11 @@ UpdateCastingPhase() {
     }
 
     if ((A_TickCount - Macro.castStartedAt) >= Macro.castWaitTimeoutMs)
-        StartMacroCycle()
+        MAIN["cast_on_timeout"] ? StartMacroCycle() : StopMacroCycle("OFF")
 }
 
 UpdateCastedPhase() {
-    global Macro
+    global Macro, MAIN
 
     Macro.powerPercent := ""
     Macro.progressPercent := ""
@@ -146,7 +510,7 @@ UpdateCastedPhase() {
     if (!Macro.castReleasedAt)
         Macro.castReleasedAt := A_TickCount
 
-    if ((A_TickCount - Macro.castReleasedAt) < 150)
+    if ((A_TickCount - Macro.castReleasedAt) < MAIN["post_cast_delay_ms"])
         return
 
     Macro.lastShakedAt := 0
@@ -177,21 +541,26 @@ UpdateShakePhase() {
 }
 
 UpdateFishingPhase() {
-    global Macro, Controller
+    global Macro, Controller, MAIN
 
     Macro.powerPercent := ""
 
     progress := GetFishingCompletionPercent()
     Macro.progressPercent := (progress = "" ? "" : Round(progress))
 
-    if (IsFishingCompletionReached()) {
-        StopMacroCycle("DONE")
-        return
-    }
+    if (progress != "" && progress >= (MAIN["completion_threshold"] + 0.0))
+        Macro.completionReached := true
 
-    if (HasActiveFishingContext()) {
+    ; Reel GUI lifecycle is the authoritative "minigame ongoing" signal —
+    ; negative-progress fish can drag this out arbitrarily long, so duration
+    ; alone must never end the cycle.
+    if (GetReelGui()) {
         Macro.fishingLostAt := 0
-        Controller.Update()
+
+        if (HasActiveFishingContext())
+            Controller.Update()
+        else
+            ReleaseMouse()
         return
     }
 
@@ -201,28 +570,46 @@ UpdateFishingPhase() {
     if (!Macro.fishingLostAt)
         Macro.fishingLostAt := A_TickCount
 
-    if ((A_TickCount - Macro.fishingLostAt) >= Macro.fishingEndGraceMs)
+    if ((A_TickCount - Macro.fishingLostAt) >= Macro.fishingEndGraceMs) {
+        if (!Macro.outcomeResolved) {
+            Macro.outcomeResolved := true
+            if (Macro.completionReached)
+                Macro.fishCaughtCount += 1
+            else
+                Macro.fishLostCount += 1
+        }
         StopMacroCycle("DONE")
+    }
 }
 
 HoldMouse() {
-    global Macro
+    global Macro, MAIN
 
     if (Macro.isHolding)
         return
 
+    delay := MAIN["fishing_action_delay_ms"] + 0
+    if (delay > 0 && Macro.lastActionAt && (A_TickCount - Macro.lastActionAt) < delay)
+        return
+
     Send("{LButton down}")
     Macro.isHolding := true
+    Macro.lastActionAt := A_TickCount
 }
 
 ReleaseMouse() {
-    global Macro
+    global Macro, MAIN
 
     if (!Macro.isHolding)
         return
 
+    delay := MAIN["fishing_action_delay_ms"] + 0
+    if (delay > 0 && Macro.lastActionAt && (A_TickCount - Macro.lastActionAt) < delay)
+        return
+
     Send("{LButton up}")
     Macro.isHolding := false
+    Macro.lastActionAt := A_TickCount
 }
 
 ReadFramePosition(frameAddr) {
@@ -402,6 +789,51 @@ FindDescendantFrameByName(rootAddr, targetName) {
     return 0
 }
 
+ReadNotePosition(frameAddr) {
+    global OFFSETS
+    base := OFFSETS["FramePositionX"] + 0
+    return {
+        sx: ReadFloat(frameAddr + base + 0x0),
+        ox: ReadInt(frameAddr + base + 0x4),
+        sy: ReadFloat(frameAddr + base + 0x8),
+        oy: ReadInt(frameAddr + base + 0xC)
+    }
+}
+
+GetNoteContainer() {
+    reelGui := GetReelGui()
+    if (!reelGui)
+        return 0
+    barFrame := FindChildByName(reelGui, "bar")
+    if (!barFrame)
+        return 0
+    return FindChildByName(barFrame, "noteContainer")
+}
+
+GetActiveNoteTargetX() {
+    noteContainer := GetNoteContainer()
+    if (!noteContainer)
+        return ""
+
+    bestX := ""
+    bestY := -99999.0
+
+    for noteName in ["note1", "note2"] {
+        noteAddr := FindChildByName(noteContainer, noteName)
+        if (!noteAddr)
+            continue
+        pos := ReadNotePosition(noteAddr)
+        if (pos.sy > 0.55)
+            continue
+        if (pos.sy > bestY) {
+            bestY := pos.sy
+            bestX := pos.sx
+        }
+    }
+
+    return bestX
+}
+
 class FishingController {
     Reset() {
         for _, propName in ["lastPlayerbarPos", "lastFishPos", "pwmAccumulator"] {
@@ -527,5 +959,16 @@ class FishingController {
 
     Release() {
         ReleaseMouse()
+    }
+}
+
+; Pinion's Aria controller: targets the most imminent falling note's X position.
+; Falls back to the standard fish X when no note is in catchable range.
+class PinionController extends FishingController {
+    GetFishPosition() {
+        noteX := GetActiveNoteTargetX()
+        if (noteX != "")
+            return noteX
+        return super.GetFishPosition()
     }
 }

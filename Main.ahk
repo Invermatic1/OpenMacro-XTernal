@@ -31,11 +31,13 @@ You do not retain ownership rights that allow you to license or distribute the c
 #Include shared\Process.ahk
 #Include shared\Read.ahk
 #Include shared\Memory.ahk
+#Include shared\Totem.ahk
 #Include shared\Hotkeys.ahk
 #Include shared\Fish.ahk
-#Include library\DiscordBuilderAHK-0.0.1.1\DiscordBuilder.ahk
+#Include library\Discord\DiscordBuilder.ahk
 #Include ui\Dialogs\UpdateDialog.ahk
 #Include ui\Dialogs\PostUpdateDialog.ahk
+#Include ui\Dialogs\AdvSettingsDialog.ahk
 #Include ui\Gui.ahk
 
 global Macro := CreateFishingMacro()
@@ -61,24 +63,16 @@ Initialize() {
     global RBLX_PID, RBLX_BASE, ROD, Macro
 
     EnsureAppDataDirs()
+    StartAutoTotemDebugSession()
 
-    RBLX_PID := GetRobloxPID()
-
-    if (RBLX_PID) {
-        RBLX_BASE := GetProcessBase(RBLX_PID)
-        if (!RBLX_BASE) {
-            throw Error("Couldnt get Roblox base. Check permissions")
+    if (GetRobloxPID()) {
+        if !EnsureRobloxReady(false, true) {
+            AutoTotemDebugLog("startup attach failed; continuing unattached", false)
+            MsgBox("Roblox was detected, but XTernal could not attach. The app will still open. Use Fix Roblox or start the macro again after Roblox is ready.", "Roblox Attachment")
         }
-
-        try {
-            LoadOffsets()
-        } catch as err {
-            throw Error(err.Message)
-        }
-
-        ROD := GetHotbarRodName()
     }
 
+    AutoTotemDebugLog("initialize complete | rod=[" ROD "]", false)
     SetTimer(MacroLoop, MAIN["update_rate"])
 }
 

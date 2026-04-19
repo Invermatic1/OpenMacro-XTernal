@@ -1,8 +1,8 @@
 #Requires AutoHotkey v2.0
 
 MAJOR_VER       := "v0"
-FULL_VER        := "v0.0.7"
-ROBLOX_VER      := "version-9d412f44a6fe4081"
+FULL_VER        := "v0.0.8"
+ROBLOX_VER      := "version-26c90be22e0d4758"
 GITHUB_OWNER        := "termx3"
 GITHUB_REPO         := "OpenMacro-XTernal"
 ; GITHUB_REPO       := "Canary-OpenMacro-XTernal" ; Canary channel
@@ -49,6 +49,18 @@ LoadSettings() {
         if (!settings.Has("custom_theme"))
             settings["custom_theme"] := settings["appearance"].Clone()
 
+        defaultMain := GetDefaultSettings()["main"]
+        changed := false
+        for key, val in defaultMain {
+            if (!settings["main"].Has(key)) {
+                settings["main"][key] := val
+                changed := true
+            }
+        }
+
+        if (changed)
+            _WriteSettingsFile(settingsPath, settings)
+
         return settings
     } catch as err {
         throw Error("Failed to load settings: " err.Message)
@@ -82,7 +94,23 @@ GetDefaultSettings() {
         "proportional_gain", 0.42,
         "resilience", 0.0,
         "update_rate", 21,
-        "velocity_damping", 38
+        "velocity_damping", 38,
+        "cast_mode", "perfect",
+        "cast_power_custom", 96.0,
+        "cast_timeout_ms", 15000,
+        "pre_cast_delay_ms", 0,
+        "post_cast_delay_ms", 150,
+        "cast_on_timeout", 1,
+        "fishing_action_delay_ms", 0,
+        "fishing_end_grace_ms", 100,
+        "completion_threshold", 99.7,
+        "shake_interval_ms", 25,
+        "auto_totem_enabled", 0,
+        "auto_totem_name", "Aurora Totem",
+        "auto_totem_mode", "expire",
+        "auto_totem_interval_sec", 900,
+        "post_catch_delay_ms", 3000,
+        "post_totem_delay_ms", 500
     )
 
     defaults["last_config"] := ""

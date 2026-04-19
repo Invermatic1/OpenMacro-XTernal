@@ -32,7 +32,7 @@ class InfoPopup {
             w: 100,
             h: 30,
             fontSize: 12,
-            bg: Accent
+            bg: BgColor
         })
         understood.OnEvent("Click", (*) => this.Close(dlg))
 

@@ -33,8 +33,95 @@ LoadOffsets() {
     }
 }
 
+AreOffsetsLoaded() {
+    global OFFSETS
+    return (OFFSETS is Map) && OFFSETS.Count && OFFSETS.Has("FakeDataModelPointer")
+}
+
+ResetRobloxAttachmentState() {
+    global H_PROCESS, RBLX_PID, RBLX_BASE, OFFSETS, ROD
+
+    H_PROCESS := 0
+    RBLX_PID := 0
+    RBLX_BASE := 0
+    OFFSETS := Map()
+    ROD := ""
+}
+
+IsRobloxAttached() {
+    global H_PROCESS, RBLX_PID, RBLX_BASE
+
+    currentPid := GetRobloxPID()
+    return (currentPid && currentPid = RBLX_PID && H_PROCESS && RBLX_BASE) ? true : false
+}
+
+IsMemoryReady() {
+    return IsRobloxAttached() && AreOffsetsLoaded()
+}
+
+AttachToRoblox(pid := 0) {
+    global RBLX_PID, RBLX_BASE, ROD, H_PROCESS
+
+    pid := pid ? pid : GetRobloxPID()
+    if !pid
+        throw Error("Roblox is not running.")
+
+    ResetRobloxAttachmentState()
+    RBLX_PID := pid
+
+    try {
+        RBLX_BASE := GetProcessBase(pid)
+        if (!RBLX_BASE)
+            throw Error("Failed to attach to Roblox.")
+
+        LoadOffsets()
+        ROD := GetHotbarRodName()
+        return true
+    } catch as err {
+        ResetRobloxAttachmentState()
+        throw Error(err.Message)
+    }
+}
+
+EnsureRobloxReady(showMessage := true, attemptAttach := true) {
+    currentPid := GetRobloxPID()
+
+    if !currentPid {
+        ResetRobloxAttachmentState()
+        UpdateRobloxUiState()
+        if showMessage
+            MsgBox("Roblox is not running. Open Roblox first to use this feature.", "Roblox Not Found")
+        return false
+    }
+
+    if IsMemoryReady() {
+        UpdateRobloxUiState()
+        return true
+    }
+
+    if !attemptAttach {
+        if showMessage
+            MsgBox("Roblox is not attached. Open Roblox and try again, or press Fix Roblox.", "Roblox Not Attached")
+        return false
+    }
+
+    try {
+        AttachToRoblox(currentPid)
+        UpdateRobloxUiState()
+        return true
+    } catch as err {
+        UpdateRobloxUiState()
+        if showMessage
+            MsgBox(err.Message, "Roblox Attachment")
+        return false
+    }
+}
+
 GetDataModel() {
     global OFFSETS, H_PROCESS, RBLX_BASE
+
+    if (!AreOffsetsLoaded() || !H_PROCESS || !RBLX_BASE)
+        return 0
     
     fakeDataModelOffset := OFFSETS["FakeDataModelPointer"] + 0
     fakeDataModel := ReadPointer(RBLX_BASE + fakeDataModelOffset)
@@ -161,11 +248,19 @@ GetBackpackGui() {
 }
 
 GetHotbarGui() {
-    backpack := GetBackpackGui()
-    if !backpack
+    lp := GetLocalPlayer()
+    if !lp
         return 0
 
-    return FindChildByName(backpack, "Hotbar")
+    pg := FindChildByClass(lp, "PlayerGui")
+    if !pg
+        return 0
+
+    bp := FindChildByName(pg, "backpack")
+    if !bp
+        return 0
+
+    return FindChildByName(bp, "hotbar")
 }
 
 GetHotbarRodName() {
@@ -173,14 +268,130 @@ GetHotbarRodName() {
     if !hotbar
         return ""
 
-    for _, slotPtr in ReadChildren(hotbar) {
-        toolNameLabel := FindChildByName(slotPtr, "ToolName")
-        if !toolNameLabel
+    fallback := ""
+
+    for slotPtr in ReadChildren(hotbar) {
+        if (ReadClassName(slotPtr) != "ImageButton" || ReadInstanceName(slotPtr) != "ItemTemplate")
             continue
 
-        toolText := Trim(ReadGuiText(toolNameLabel))
-        if (toolText != "")
+        nameInst := FindChildByName(slotPtr, "ItemName")
+        if !nameInst
+            continue
+
+        toolText := ReadGuiText(nameInst)
+        pureRodName := ExtractPureRodName(toolText)
+        if (pureRodName != "")
+            return pureRodName
+
+        toolText := NormalizeRodDisplayText(toolText)
+        if (toolText = "")
+            continue
+
+        if (fallback = "")
+            fallback := toolText
+    }
+
+    return fallback
+}
+
+GetHotbarRodDisplayText() {
+    hotbar := GetHotbarGui()
+    if !hotbar
+        return ""
+
+    fallback := ""
+
+    for slotPtr in ReadChildren(hotbar) {
+        if (ReadClassName(slotPtr) != "ImageButton" || ReadInstanceName(slotPtr) != "ItemTemplate")
+            continue
+
+        nameInst := FindChildByName(slotPtr, "ItemName")
+        if !nameInst
+            continue
+
+        toolText := NormalizeRodDisplayText(ReadGuiText(nameInst))
+        if (toolText = "")
+            continue
+
+        if (ExtractPureRodName(toolText) != "" || IsPinionRodText(toolText))
             return toolText
+
+        if (fallback = "")
+            fallback := toolText
+    }
+
+    return fallback
+}
+
+GetKnownRodNames() {
+    static rodNames := [
+        "Pinion's Aria",
+        "Rod Of The Eternal King",
+        "Rod Of The Depths",
+        "Rod Of Time",
+        "Flimsy Rod",
+        "Training Rod",
+        "Plastic Rod",
+        "Steady Rod",
+        "Reinforced Rod",
+        "Phoenix Rod",
+        "Mythical Rod",
+        "No-Life Rod",
+        "Sunken Rod",
+        "Trident Rod",
+        "Kings Rod",
+        "Wisdom Rod",
+        "Toxinburst Rod",
+        "The Lost Rod",
+        "Riptide Rod",
+        "Lucid Rod",
+        "Celestial Rod",
+        "Seasons Rod",
+        "Krampus's Rod",
+        "Precision Rod",
+        "Resourceful Rod",
+        "Toxic Spire Rod",
+        "Gardenkeeper Rod",
+        "Voyager Rod",
+        "Vineweaver Rod"
+    ]
+
+    return rodNames
+}
+
+NormalizeRodDisplayText(text) {
+    text := StrReplace(text, "`r", "`n")
+    text := RegExReplace(text, "<[^>]+>")
+    text := RegExReplace(text, "[ \t]+", " ")
+    text := RegExReplace(text, "\n+", "`n")
+    return Trim(text)
+}
+
+IsPinionRodText(text) {
+    return InStr(StrLower(NormalizeRodDisplayText(text)), "pinion") ? true : false
+}
+
+HasPinionHotbarRod() {
+    return IsPinionRodText(GetHotbarRodDisplayText())
+}
+
+ExtractPureRodName(text) {
+    cleanText := NormalizeRodDisplayText(text)
+    if (cleanText = "")
+        return ""
+
+    for _, rodName in GetKnownRodNames() {
+        if (InStr(cleanText, rodName))
+            return rodName
+    }
+
+    for _, line in StrSplit(cleanText, "`n") {
+        line := Trim(line)
+        if (line = "")
+            continue
+
+        if (line = "Pinion's Aria" || RegExMatch(line, "i)\brod\b"))
+            return line
     }
 
     return ""

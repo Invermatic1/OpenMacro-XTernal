@@ -189,6 +189,14 @@ FindChildByName(instanceAddr, name) {
     return 0
 }
 
+FindChildByClass(instanceAddr, className) {
+    for childPtr in ReadChildren(instanceAddr) {
+        if (ReadClassName(childPtr) = className)
+            return childPtr
+    }
+    return 0
+}
+
 ReadParent(instanceAddr) {
     global OFFSETS
     return ReadPointer(instanceAddr + (OFFSETS["Parent"] + 0))

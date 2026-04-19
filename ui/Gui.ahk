@@ -7,7 +7,7 @@
 
 GetGui() {
     global FULL_VER, ROBLOX_VER, RBLX_BASE, RBLX_PID, ENV, ROD, APPEARANCE
-    global StatusText, PowerText, ProgressText
+    global StatusText, PowerText, ProgressText, RobloxStatusCtrl
 
     Accent     := APPEARANCE["accent_color"]
     BgColor    := APPEARANCE["bg_color"]
@@ -29,8 +29,8 @@ GetGui() {
     mg.Title := "OpenMacro Xternal | " FULL_VER
     mg.SetFont(, "Segoe UI")
 
-    RobloxStatus := mg.AddText("x295 y3 w200 h15 c" TextColor, "PID: " RBLX_PID)
-    RobloxStatus.SetFont("s9 bold")
+    RobloxStatusCtrl := mg.AddText("x295 y3 w200 h15 c" TextColor, GetRobloxStatusText())
+    RobloxStatusCtrl.SetFont("s9 bold")
 
     MainTab := mg.AddTab3("x0 y0 w400 h600 c" Accent, ["Home", "Appraisal", "Settings", "Changelog", "Credits"])
     MainTab.SetFont("bold")
@@ -117,7 +117,7 @@ GetGui() {
     mg.AddText("x300 y282 w85 h20 c" TextColor, "15% -> 0.15")
 
     mg.AddText("x20 y305 w150 h20 c" TextColor, "Rod Equipped").SetFont("s10")
-    global RodEquipped := mg.AddText("x140 y305 w150 h100 c" TextColor, ROD)
+    global RodEquipped := mg.AddText("x140 y305 w150 h100 c" TextColor, GetRodDisplayText())
     RodEquipped.SetFont("s10")
     CheckEquippedBtn := mg.AddText("x300 y307 w50 h20 c" Accent, "Check")
     CheckEquippedBtn.SetFont("underline")
@@ -183,9 +183,13 @@ GetGui() {
     })
     DeleteConfigBtn.OnEvent("Click", (*) => OnDeleteConfig(ConfigDDL))
     
-    OpenConfigsBtn := mg.AddText("x20 y565 w80 h20 c" Accent, "Open folder")
+    OpenConfigsBtn := mg.AddText("x20 y565 w58 h20 c" Accent, "Open folder")
     OpenConfigsBtn.SetFont("underline")
     OpenConfigsBtn.OnEvent("Click", (*) => Run("explorer.exe `"" CONFIGS_DIR "`""))
+
+    OpenAdvSettingsBtn := mg.AddText("x90 y565 w100 h20 c" Accent, "Advanced Settings")
+    OpenAdvSettingsBtn.SetFont("underline")
+    OpenAdvSettingsBtn.OnEvent("Click", (*) => GetAdvSettingsGui())
 
     MainTab.UseTab(2)
     mg.AddGroupBox("x10 y30 w380 h120 c" TextColor, "Settings").SetFont("s9 bold")
@@ -324,17 +328,15 @@ GetGui() {
 
     MainTab.UseTab(4)
         mg.AddText("x10 y30 w300 h100 c" TextColor, "Version " FULL_VER).SetFont("s15 bold italic")
-        mg.AddText("x270 y33 w120 h50 c" TextColor, "April 13, 2026").SetFont("s12 bold")
+        mg.AddText("x270 y33 w120 h50 c" TextColor, "April 20, 2026").SetFont("s12 bold")
 
-        mg.AddText("x15 y70 w300 h100 c" TextColor, "Latest Changes").SetFont("s13 bold")
-        mg.AddText("x15 y95 w370 h480 c" TextColor,
-            "• Fix Roblox (F2) now checks running Roblox version against latest before re-attaching — warns if offsets may be outdated`n`n"
-            . "• GitHub update check is now cached for 5 minutes — prevents repeated network requests on frequent reloads`n`n"
-            . "• Batch updater escape logic hardened to handle all cmd metacharacters`n`n"
-            . "• Settings tab now includes an Open Folder button to access the XTernal AppData directory`n`n"
-            . "• All dialogs (update, post-update, add mutation) now respect the active appearance theme`n`n"
-            . "• Update dialog no longer allows double-clicking Download; install is deferred until dialog hides cleanly`n`n"
-            . "• Post-update dialog now blocks until dismissed")
+        mg.AddText("x15 y70 w130 h20 c" TextColor, "What's new").SetFont("s13 bold")
+        mg.AddText("x15 y95 w370 h510 c" TextColor,
+            "• Added Advanced Settings window — cast behavior (Perfect / Short / Custom mode, timeout, pre/post-cast delay, cast-on-timeout) and fishing behavior (action delay, end grace, completion threshold, shake interval)`n`n"
+            . "• Added Auto Totem system — automates Aurora Totem use on a configurable interval or expire-based schedule, with night cycle detection, post-catch settle delay, and automatic rod re-equip`n`n"
+            . "• Added Pinion's Aria rod support — detects the rod and switches to a note-targeting controller that positions the playerbar under the most imminent falling note`n`n"
+            . "• Settings and config files now backfill missing keys on load — upgrading no longer requires deleting settings.json or rebuilding old profiles`n`n"
+            . "• New configs are created with defaults instead of a snapshot of current state")
             .SetFont("s10")
 
     MainTab.UseTab(5)
@@ -352,6 +354,7 @@ GetGui() {
     CreditsWebLink.OnEvent("Click", (*) => Run("https://discord.gg/d2gqxEUx7U"))
 
     mg.Show("w400 h600 y100 x1100")
+    UpdateRobloxUiState()
     UpdateMacroStatus("OFF", "---", "---")
     MainTab.Choose(1)
     lastAllowedTab := MainTab.Value
@@ -386,6 +389,26 @@ GetGui() {
 
         lastAllowedTab := ctrl.Value
     }
+}
+
+GetRobloxStatusText() {
+    global RBLX_PID
+    return "PID: " (RBLX_PID ? RBLX_PID : "---")
+}
+
+GetRodDisplayText() {
+    global ROD
+    return (ROD != "" ? ROD : "---")
+}
+
+UpdateRobloxUiState() {
+    global RobloxStatusCtrl, RodEquipped
+
+    if IsSet(RobloxStatusCtrl) && RobloxStatusCtrl
+        RobloxStatusCtrl.Value := GetRobloxStatusText()
+
+    if IsSet(RodEquipped) && RodEquipped
+        RodEquipped.Text := GetRodDisplayText()
 }
 
 ApplyThemePreset(ddl, themes, appearanceFields) {
@@ -464,8 +487,12 @@ ApplyAppearanceChanges(appearanceFields, themeDDL := "") {
 
 UpdateEquippedRod() {
     global ROD, RodEquipped
+
+    if !EnsureRobloxReady(true, true)
+        return
+
     ROD := GetHotbarRodName()
-    RodEquipped.Text := ROD
+    UpdateRobloxUiState()
 }
 
 UpdateMacroStatus(status := "", power := "", progress := "") {
@@ -551,7 +578,7 @@ OnNewConfig(ddl) {
         }
     }
 
-    SaveConfig(name)
+    SaveConfig(name, true)
 
     if (ddl.Text = "No configs") {
         ddl.Delete()
