@@ -330,14 +330,8 @@ GetGui() {
         mg.AddText("x10 y30 w300 h100 c" TextColor, "Version " FULL_VER).SetFont("s15 bold italic")
         mg.AddText("x270 y33 w120 h50 c" TextColor, "April 20, 2026").SetFont("s12 bold")
 
-        mg.AddText("x15 y70 w130 h20 c" TextColor, "What's new").SetFont("s13 bold")
-        mg.AddText("x15 y95 w370 h510 c" TextColor,
-            "• Added Advanced Settings window — cast behavior (Perfect / Short / Custom mode, timeout, pre/post-cast delay, cast-on-timeout) and fishing behavior (action delay, end grace, completion threshold, shake interval)`n`n"
-            . "• Added Auto Totem system — automates Aurora Totem use on a configurable interval or expire-based schedule, with night cycle detection, post-catch settle delay, and automatic rod re-equip`n`n"
-            . "• Added Pinion's Aria rod support — detects the rod and switches to a note-targeting controller that positions the playerbar under the most imminent falling note`n`n"
-            . "• Settings and config files now backfill missing keys on load — upgrading no longer requires deleting settings.json or rebuilding old profiles`n`n"
-            . "• New configs are created with defaults instead of a snapshot of current state")
-            .SetFont("s10")
+        mg.AddText("x15 y70 w130 h20 c" TextColor, "Improvements").SetFont("s13 bold")
+        mg.AddText("x15 y95 w370 h510 c" TextColor, "• Heavy improvements for Pinion rod Controller.").SetFont("s10")
 
     MainTab.UseTab(5)
     mg.AddText("x10 y30 w300 h40 c" TextColor, "OpenMacro XTernal").SetFont("s15 bold")
