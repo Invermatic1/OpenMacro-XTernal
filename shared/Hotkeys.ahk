@@ -23,10 +23,13 @@ FixRoblox() {
     pid := GetRobloxPID()
     if (!pid) {
         ResetRobloxAttachmentState()
+        ClearMacroPhaseCache()
         UpdateRobloxUiState()
         MsgBox("Roblox not found.")
         return
     }
+
+    ClearMacroPhaseCache()
 
     try {
         runningHash := GetRunningRobloxVersionHash(pid)

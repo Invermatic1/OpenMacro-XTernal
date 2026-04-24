@@ -40,12 +40,34 @@ AreOffsetsLoaded() {
 
 ResetRobloxAttachmentState() {
     global H_PROCESS, RBLX_PID, RBLX_BASE, OFFSETS, ROD
+    global g_CachedDataModel, g_CachedLocalPlayer, g_CachedPlayerGui
+    global g_CachedWorkspaceRoot, g_CachedWorldStatuses, g_CachedHotbarGui
+
+    g_CachedDataModel := 0
+    g_CachedLocalPlayer := 0
+    g_CachedPlayerGui := 0
+    g_CachedWorkspaceRoot := 0
+    g_CachedWorldStatuses := 0
+    g_CachedHotbarGui := 0
 
     H_PROCESS := 0
     RBLX_PID := 0
     RBLX_BASE := 0
     OFFSETS := Map()
     ROD := ""
+}
+
+IsCachedAddrValid(addr, expectedName) {
+    if (!addr)
+        return false
+
+    try {
+        name := ReadInstanceName(addr)
+    } catch {
+        return false
+    }
+
+    return (name = expectedName)
 }
 
 IsRobloxAttached() {
@@ -118,20 +140,26 @@ EnsureRobloxReady(showMessage := true, attemptAttach := true) {
 }
 
 GetDataModel() {
-    global OFFSETS, H_PROCESS, RBLX_BASE
+    global OFFSETS, H_PROCESS, RBLX_BASE, g_CachedDataModel
+
+    if (g_CachedDataModel)
+        return g_CachedDataModel
 
     if (!AreOffsetsLoaded() || !H_PROCESS || !RBLX_BASE)
         return 0
-    
+
     fakeDataModelOffset := OFFSETS["FakeDataModelPointer"] + 0
     fakeDataModel := ReadPointer(RBLX_BASE + fakeDataModelOffset)
-    
+
     if (!fakeDataModel)
         return 0
-    
+
     dataModelOffset := OFFSETS["FakeDataModelToDataModel"] + 0
     dataModel := ReadPointer(fakeDataModel + dataModelOffset)
-    
+
+    if (dataModel)
+        g_CachedDataModel := dataModel
+
     return dataModel
 }
 
@@ -153,34 +181,53 @@ GetPlayers() {
 }
 
 GetLocalPlayer() {
-    global OFFSETS
-    
+    global OFFSETS, g_CachedLocalPlayer
+
+    if (g_CachedLocalPlayer)
+        return g_CachedLocalPlayer
+
     players := GetPlayers()
     if !players
         return 0
-    
+
     localPlayerOffset := OFFSETS["LocalPlayer"] + 0
     localPlayer := ReadPointer(players + (localPlayerOffset))
+
+    if (localPlayer)
+        g_CachedLocalPlayer := localPlayer
+
     return localPlayer
 }
 
 FindPlayerGui() {
+    global g_CachedPlayerGui
+
+    if (g_CachedPlayerGui)
+        return g_CachedPlayerGui
+
     localPlayer := GetLocalPlayer()
     if (!localPlayer)
         return 0
-    
+
     children := ReadChildren(localPlayer)
-    
+
     for childPtr in children {
         className := ReadClassName(childPtr)
-        if (className = "PlayerGui")
+        if (className = "PlayerGui") {
+            g_CachedPlayerGui := childPtr
             return childPtr
+        }
     }
-    
+
     return 0
 }
 
 GetWorkspaceRoot() {
+    global g_CachedWorkspaceRoot
+
+    if (g_CachedWorkspaceRoot)
+        return g_CachedWorkspaceRoot
+
     dataModel := GetDataModel()
     if (!dataModel)
         return 0
@@ -188,8 +235,10 @@ GetWorkspaceRoot() {
     for childPtr in ReadChildren(dataModel) {
         name := ReadInstanceName(childPtr)
         className := ReadClassName(childPtr)
-        if (name = "Workspace" || className = "Workspace")
+        if (name = "Workspace" || className = "Workspace") {
+            g_CachedWorkspaceRoot := childPtr
             return childPtr
+        }
     }
 
     return 0
@@ -248,6 +297,11 @@ GetBackpackGui() {
 }
 
 GetHotbarGui() {
+    global g_CachedHotbarGui
+
+    if (g_CachedHotbarGui)
+        return g_CachedHotbarGui
+
     lp := GetLocalPlayer()
     if !lp
         return 0
@@ -260,7 +314,11 @@ GetHotbarGui() {
     if !bp
         return 0
 
-    return FindChildByName(bp, "hotbar")
+    hotbar := FindChildByName(bp, "hotbar")
+    if (hotbar)
+        g_CachedHotbarGui := hotbar
+
+    return hotbar
 }
 
 GetHotbarRodName() {

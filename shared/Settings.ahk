@@ -109,6 +109,11 @@ LoadConfig(name) {
             MAIN[key] := value
         }
 
+        PruneObsoleteMainSettings(SETTINGS["main"])
+        PruneObsoleteMainSettings(MAIN)
+        NormalizeMainSettings(SETTINGS["main"])
+        NormalizeMainSettings(MAIN)
+
         defaults := GetDefaultSettings()["main"]
         for key, defaultVal in defaults {
             if (!MAIN.Has(key)) {

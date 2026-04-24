@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
 MAJOR_VER       := "v0"
-FULL_VER        := "v0.0.10"
+FULL_VER        := "v0.1.10"
 ROBLOX_VER      := "version-2e6461290a3541f5"
 GITHUB_OWNER        := "termx3"
 GITHUB_REPO         := "OpenMacro-XTernal"
@@ -15,6 +15,13 @@ RBLX_PID        := 0
 RBLX_BASE       := 0
 OFFSETS         := Map()
 OFFSETS_PATH    := A_ScriptDir "\settings\offsets.json"
+
+g_CachedDataModel      := 0
+g_CachedLocalPlayer    := 0
+g_CachedPlayerGui      := 0
+g_CachedWorkspaceRoot  := 0
+g_CachedWorldStatuses  := 0
+g_CachedHotbarGui      := 0
 
 APPDATA_DIR   := EnvGet("APPDATA") "\OpenMacro\XTernal"
 CONFIGS_DIR   := APPDATA_DIR "\configs"
@@ -58,6 +65,12 @@ LoadSettings() {
             }
         }
 
+        if (PruneObsoleteMainSettings(settings["main"]))
+            changed := true
+
+        if (NormalizeMainSettings(settings["main"]))
+            changed := true
+
         if (changed)
             _WriteSettingsFile(settingsPath, settings)
 
@@ -95,22 +108,19 @@ GetDefaultSettings() {
         "resilience", 0.0,
         "update_rate", 21,
         "velocity_damping", 38,
-        "cast_mode", "perfect",
+        "cast_mode", "short",
         "cast_power_custom", 96.0,
         "cast_timeout_ms", 15000,
         "pre_cast_delay_ms", 0,
         "post_cast_delay_ms", 150,
         "cast_on_timeout", 1,
         "fishing_action_delay_ms", 0,
-        "fishing_end_grace_ms", 100,
         "completion_threshold", 99.7,
         "shake_interval_ms", 25,
         "auto_totem_enabled", 0,
         "auto_totem_name", "Aurora Totem",
         "auto_totem_mode", "expire",
-        "auto_totem_interval_sec", 900,
-        "post_catch_delay_ms", 3000,
-        "post_totem_delay_ms", 500
+        "auto_totem_interval_sec", 900
     )
 
     defaults["last_config"] := ""
@@ -128,6 +138,41 @@ GetDefaultSettings() {
     )
 
     return defaults
+}
+
+GetObsoleteMainSettings() {
+    return ["fishing_end_grace_ms", "post_catch_delay_ms", "post_totem_delay_ms"]
+}
+
+GetMinCastTimeoutMs() {
+    return 5000
+}
+
+PruneObsoleteMainSettings(mainSettings) {
+    changed := false
+
+    for _, key in GetObsoleteMainSettings() {
+        if (mainSettings.Has(key)) {
+            mainSettings.Delete(key)
+            changed := true
+        }
+    }
+
+    return changed
+}
+
+NormalizeMainSettings(mainSettings) {
+    changed := false
+
+    if (mainSettings.Has("cast_timeout_ms") && IsNumber(mainSettings["cast_timeout_ms"])) {
+        normalized := Max(GetMinCastTimeoutMs(), Round(mainSettings["cast_timeout_ms"] + 0))
+        if (normalized != mainSettings["cast_timeout_ms"]) {
+            mainSettings["cast_timeout_ms"] := normalized
+            changed := true
+        }
+    }
+
+    return changed
 }
 
 _WriteSettingsFile(path, data) {

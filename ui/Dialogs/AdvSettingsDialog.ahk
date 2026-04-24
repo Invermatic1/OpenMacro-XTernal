@@ -45,13 +45,13 @@ GetAdvSettingsGui() {
     CastTimeout := mg.AddEdit("x270 y100 w100 h20")
     CastTimeoutHelp := mg.AddText("x190 y100 w50 h20 c" Accent, "What?")
     CastTimeoutHelp.SetFont("underline")
-    CastTimeoutHelp.OnEvent("Click", (*) => InfoPopup.Show("Cast Timeout", "How long the macro waits before giving up on a cast attempt. It is used while waiting for the cast bar to appear and also while waiting for the fishing UI to appear after release. If the timeout is hit, the macro either retries or stops based on Cast on Timeout."))
+    CastTimeoutHelp.OnEvent("Click", (*) => InfoPopup.Show("Cast Timeout", "How long the macro waits before giving up on a cast attempt. Minimum is 5 seconds. It is used while waiting for the cast bar to appear and also while waiting for the fishing UI to appear after release. If the timeout is hit, the macro either retries or stops based on Cast on Timeout."))
 
-    mg.AddText("x20 y125 w150 h20 c" TextColor, "Pre-Cast Delay").SetFont("s10")
+    mg.AddText("x20 y125 w150 h20 c" TextColor, "Cycle Start Delay").SetFont("s10")
     PreCastDelay := mg.AddEdit("x270 y125 w100 h20")
     PreCastDelayHelp := mg.AddText("x190 y125 w50 h20 c" Accent, "What?")
     PreCastDelayHelp.SetFont("underline")
-    PreCastDelayHelp.OnEvent("Click", (*) => InfoPopup.Show("Pre-Cast Delay", "Extra wait at the start of each cycle before the macro begins holding left click to cast. Increase it if the game needs a short moment before casting is reliable."))
+    PreCastDelayHelp.OnEvent("Click", (*) => InfoPopup.Show("Cycle Start Delay", "Extra wait at the start of each cycle before the macro casts. Queued auto-totem use also waits this long before touching hotbar items."))
 
     mg.AddText("x20 y150 w150 h20 c" TextColor, "Post-Cast Delay").SetFont("s10")
     PostCastDelay := mg.AddEdit("x270 y150 w100 h20")
@@ -74,25 +74,19 @@ GetAdvSettingsGui() {
     FishingActionDelayHelp.SetFont("underline")
     FishingActionDelayHelp.OnEvent("Click", (*) => InfoPopup.Show("Fishing Action Delay", "Minimum time between left-click down and up changes while balancing the fish bar. Increase it if rapid hold and release spam causes missed inputs or unstable tracking."))
 
-    mg.AddText("x20 y280 w130 h20 c" TextColor, "Fishing End Grace").SetFont("s10")
-    FishingEndGrace := mg.AddEdit("x270 y280 w100 h20")
-    FishingEndGraceHelp := mg.AddText("x190 y280 w50 h20 c" Accent, "What?")
-    FishingEndGraceHelp.SetFont("underline")
-    FishingEndGraceHelp.OnEvent("Click", (*) => InfoPopup.Show("Fishing End Grace", "When the reel UI disappears, the macro waits this long before deciding the catch is finished. Increase it if the fishing UI flickers or briefly disappears before the catch really ends."))
-
-    mg.AddText("x20 y305 w140 h20 c" TextColor, "Completion Threshold").SetFont("s10")
-    CompletionThreshold := mg.AddEdit("x270 y305 w100 h20")
-    CompletionThresholdHelp := mg.AddText("x190 y305 w50 h20 c" Accent, "What?")
+    mg.AddText("x20 y280 w140 h20 c" TextColor, "Completion Threshold").SetFont("s10")
+    CompletionThreshold := mg.AddEdit("x270 y280 w100 h20")
+    CompletionThresholdHelp := mg.AddText("x190 y280 w50 h20 c" Accent, "What?")
     CompletionThresholdHelp.SetFont("underline")
     CompletionThresholdHelp.OnEvent("Click", (*) => InfoPopup.Show("Completion Threshold", "Progress percentage where the macro considers the catch complete and exits the fishing phase. Slightly below 100% can finish faster if the game visually reaches full before the bar is mathematically perfect."))
 
-    mg.AddText("x20 y330 w130 h20 c" TextColor, "Shake Interval").SetFont("s10")
-    ShakeInterval := mg.AddEdit("x270 y330 w100 h20")
-    ShakeIntervalHelp := mg.AddText("x190 y330 w50 h20 c" Accent, "What?")
+    mg.AddText("x20 y305 w130 h20 c" TextColor, "Shake Interval").SetFont("s10")
+    ShakeInterval := mg.AddEdit("x270 y305 w100 h20")
+    ShakeIntervalHelp := mg.AddText("x190 y305 w50 h20 c" Accent, "What?")
     ShakeIntervalHelp.SetFont("underline")
     ShakeIntervalHelp.OnEvent("Click", (*) => InfoPopup.Show("Shake Interval", "How often the macro sends Enter during the shake phase while waiting for the fishing UI to appear. Lower values shake more aggressively, higher values shake less often."))
 
-    SaveFishBtn := button(mg, "Save", 270, 365, {w: 100, h: 23, bg: BgColor, fontSize: 10})
+    SaveFishBtn := button(mg, "Save", 270, 340, {w: 100, h: 23, bg: BgColor, fontSize: 10})
 
     MainTab.UseTab(2)
     mg.AddGroupBox("x10 y25 w380 h150 c" TextColor, "Settings").SetFont("s9 bold")
@@ -121,31 +115,15 @@ GetAdvSettingsGui() {
 
     SaveTotemBtn := button(mg, "Save", 270, 138, {w: 100, h: 23, bg: BgColor, fontSize: 10})
 
-    mg.AddGroupBox("x10 y180 w380 h110 c" TextColor, "Delays").SetFont("s9 bold")
-
-    mg.AddText("x20 y200 w150 h20 c" TextColor, "Post Catch Delay").SetFont("s10")
-    TotemPostCatchDelay := mg.AddEdit("x270 y200 w100 h20")
-    TotemPostCatchDelayHelp := mg.AddText("x190 y200 w50 h20 c" Accent, "What?")
-    TotemPostCatchDelayHelp.SetFont("underline")
-    TotemPostCatchDelayHelp.OnEvent("Click", (*) => InfoPopup.Show("Post Catch Delay", "Wait after a catch finishes before the macro attempts to use any totem. The game briefly ignores hotbar selection changes right after a catch, so a short delay avoids silent misses."))
-
-    mg.AddText("x20 y225 w150 h20 c" TextColor, "Rod Equip Delay").SetFont("s10")
-    TotemPostEquipDelay := mg.AddEdit("x270 y225 w100 h20")
-    TotemPostEquipDelayHelp := mg.AddText("x190 y225 w50 h20 c" Accent, "What?")
-    TotemPostEquipDelayHelp.SetFont("underline")
-    TotemPostEquipDelayHelp.OnEvent("Click", (*) => InfoPopup.Show("Rod Equip Delay", "Wait after re-equipping the rod (slot 1) before normal fishing resumes. Increase it if the rod needs a short settle period before the next cast."))
-
-    SaveDelaysBtn := button(mg, "Save", 270, 255, {w: 100, h: 23, bg: BgColor, fontSize: 10})
-
-    MainTab.Choose(2)
-
-    ApplyCastMode(*) {
+    ApplyCastMode(showPopup := false, *) {
         switch CastMode.Text {
             case "Perfect":
                 CastPowerThreshold.Value := "96%"
                 CastPowerThreshold.Enabled := false
+                if (showPopup)
+                    InfoPopup.Show("Perfect Cast Warning", "Fisch has a weird bug which causes the ingame character to move a little with each cast if cast power is above 11%, using perfect cast mode overnight will cause you to fall into the water.")
             case "Short":
-                CastPowerThreshold.Value := "25%"
+                CastPowerThreshold.Value := "10%"
                 CastPowerThreshold.Enabled := false
             case "Custom":
                 CastPowerThreshold.Value := MAIN["cast_power_custom"] "%"
@@ -153,7 +131,7 @@ GetAdvSettingsGui() {
         }
     }
 
-    CastMode.OnEvent("Change", ApplyCastMode)
+    CastMode.OnEvent("Change", (*) => ApplyCastMode(true))
 
     ApplyUseMode(*) {
         TotemInterval.Enabled := (UseModeDdl.Value = 2)
@@ -178,15 +156,12 @@ GetAdvSettingsGui() {
         CastOnTimeout.Value := MAIN["cast_on_timeout"]
 
         FishingActionDelay.Value := MAIN["fishing_action_delay_ms"]
-        FishingEndGrace.Value := MAIN["fishing_end_grace_ms"]
         CompletionThreshold.Value := Format("{:.1f}", MAIN["completion_threshold"]) "%"
         ShakeInterval.Value := MAIN["shake_interval_ms"]
 
         AutoTotemEnabled.Value := MAIN["auto_totem_enabled"]
         UseModeDdl.Choose(MAIN["auto_totem_mode"] = "interval" ? 2 : 1)
         TotemInterval.Value := MAIN["auto_totem_interval_sec"]
-        TotemPostCatchDelay.Value := MAIN["post_catch_delay_ms"]
-        TotemPostEquipDelay.Value := MAIN["post_totem_delay_ms"]
         ApplyUseMode()
     }
 
@@ -266,38 +241,6 @@ GetAdvSettingsGui() {
         SetTimer(RevertTotemBtn, -1500)
     }
 
-    SaveTotemDelaySettings(*) {
-        rawPostCatch := Trim(TotemPostCatchDelay.Value)
-        if !IsInteger(rawPostCatch) || (rawPostCatch + 0) < 0 {
-            TotemPostCatchDelay.Value := MAIN["post_catch_delay_ms"]
-            MsgBox("Post Catch Delay must be a non-negative whole number (ms).", "Invalid Value")
-            return
-        }
-
-        rawPostEquip := Trim(TotemPostEquipDelay.Value)
-        if !IsInteger(rawPostEquip) || (rawPostEquip + 0) < 0 {
-            TotemPostEquipDelay.Value := MAIN["post_totem_delay_ms"]
-            MsgBox("Rod Equip Delay must be a non-negative whole number (ms).", "Invalid Value")
-            return
-        }
-
-        postCatchMs := rawPostCatch + 0
-        postEquipMs := rawPostEquip + 0
-
-        MAIN["post_catch_delay_ms"] := postCatchMs
-        SETTINGS["main"]["post_catch_delay_ms"] := postCatchMs
-
-        MAIN["post_totem_delay_ms"] := postEquipMs
-        SETTINGS["main"]["post_totem_delay_ms"] := postEquipMs
-
-        SaveSettingsFile()
-        if (SETTINGS["last_config"] != "" && FileExist(CONFIGS_DIR "\" SETTINGS["last_config"] ".json"))
-            SaveConfig(SETTINGS["last_config"])
-
-        SaveDelaysBtn.ctrl.Value := "Saved!"
-        SetTimer(RevertDelaysBtn, -1500)
-    }
-
     SaveCastSettings(*) {
         modeMap := Map(1, "perfect", 2, "short", 3, "custom")
         MAIN["cast_mode"] := modeMap[CastMode.Value]
@@ -314,7 +257,7 @@ GetAdvSettingsGui() {
 
         raw := Trim(CastTimeout.Value)
         if (IsNumber(raw) && raw + 0 >= 0) {
-            v := Round(raw * 1000)
+            v := Max(GetMinCastTimeoutMs(), Round(raw * 1000))
             MAIN["cast_timeout_ms"] := v
             SETTINGS["main"]["cast_timeout_ms"] := v
         }
@@ -348,7 +291,6 @@ GetAdvSettingsGui() {
     SaveFishSettings(*) {
         for key, ctrl in Map(
             "fishing_action_delay_ms", FishingActionDelay,
-            "fishing_end_grace_ms", FishingEndGrace,
             "shake_interval_ms", ShakeInterval)
         {
             raw := Trim(ctrl.Value)
@@ -381,17 +323,12 @@ GetAdvSettingsGui() {
         try SaveTotemBtn.ctrl.Value := "Save"
     }
 
-    RevertDelaysBtn(*) {
-        try SaveDelaysBtn.ctrl.Value := "Save"
-    }
-
     LoadAdvFields()
     RefreshTotemDdl(MAIN["auto_totem_name"])
 
     SaveCastBtn.OnEvent("Click", SaveCastSettings)
     SaveFishBtn.OnEvent("Click", SaveFishSettings)
     SaveTotemBtn.OnEvent("Click", SaveTotemSettings)
-    SaveDelaysBtn.OnEvent("Click", SaveTotemDelaySettings)
 
     mg.Show(GuiShowOpts)
     hwnd := mg.Hwnd

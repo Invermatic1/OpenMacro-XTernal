@@ -7,7 +7,7 @@
 
 GetGui() {
     global FULL_VER, ROBLOX_VER, RBLX_BASE, RBLX_PID, ENV, ROD, APPEARANCE
-    global StatusText, PowerText, ProgressText, RobloxStatusCtrl
+    global StatusText, PowerText, ProgressText, CaughtText, LostText, SuccessRateText, RobloxStatusCtrl
 
     Accent     := APPEARANCE["accent_color"]
     BgColor    := APPEARANCE["bg_color"]
@@ -131,6 +131,15 @@ GetGui() {
 
     ProgressText := mg.AddText("x20 y390 w150 h20 c" TextColor, "Progress: ---")
     ProgressText.SetFont("s10")
+
+    CaughtText := mg.AddText("x220 y345 w150 h20 c" TextColor, "Caught: 0")
+    CaughtText.SetFont("s10")
+
+    LostText := mg.AddText("x220 y370 w150 h20 c" TextColor, "Lost: 0")
+    LostText.SetFont("s10")
+
+    SuccessRateText := mg.AddText("x220 y390 w160 h20 c" TextColor, "Success Rate: 0.0%")
+    SuccessRateText.SetFont("s10")
 
     mg.AddGroupBox("x10 y425 w380 h90 c" TextColor, "Info").SetFont("s9 bold")
 
@@ -490,7 +499,7 @@ UpdateEquippedRod() {
 }
 
 UpdateMacroStatus(status := "", power := "", progress := "") {
-    global StatusText, PowerText, ProgressText
+    global StatusText, PowerText, ProgressText, CaughtText, LostText, SuccessRateText, Macro
 
     if IsSet(StatusText) && StatusText
         StatusText.Value := "Status: " (status = "" ? "---" : status)
@@ -500,6 +509,22 @@ UpdateMacroStatus(status := "", power := "", progress := "") {
 
     if IsSet(ProgressText) && ProgressText
         ProgressText.Value := "Progress: " (progress = "" ? "---" : progress)
+
+    if IsSet(Macro) {
+        caught := Macro.fishCaughtCount
+        lost := Macro.fishLostCount
+        total := caught + lost
+        successRate := total > 0 ? (caught / total) * 100.0 : 0.0
+
+        if IsSet(CaughtText) && CaughtText
+            CaughtText.Value := "Caught: " caught
+
+        if IsSet(LostText) && LostText
+            LostText.Value := "Lost: " lost
+
+        if IsSet(SuccessRateText) && SuccessRateText
+            SuccessRateText.Value := "Success Rate: " Format("{:.1f}", successRate) "%"
+    }
 }
 
 UpdateHotkey(name, ctrl) {

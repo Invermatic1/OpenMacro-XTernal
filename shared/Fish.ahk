@@ -1,5 +1,15 @@
 #Requires AutoHotkey v2.0
 
+ClearMacroPhaseCache() {
+    global Macro
+    Macro.reelGuiAddr := 0
+    Macro.reelBarAddr := 0
+    Macro.fishAddr := 0
+    Macro.playerbarAddr := 0
+    Macro.progressBarAddr := 0
+    Macro.powerBarAddr := 0
+}
+
 CreateFishingMacro() {
     return {
         phase: "OFF",
@@ -31,7 +41,13 @@ CreateFishingMacro() {
         totemBlockedUntilCatchEnd: false,
         totemNightCovered: false,
         totemNeedsRodReequip: false,
-        totemNeedsSettleDelay: false
+        totemNeedsSettleDelay: false,
+        reelGuiAddr: 0,
+        reelBarAddr: 0,
+        fishAddr: 0,
+        playerbarAddr: 0,
+        progressBarAddr: 0,
+        powerBarAddr: 0
     }
 }
 
@@ -63,9 +79,10 @@ InitializeCastCycle() {
     Macro.outcomeResolved := false
     Macro.lastShakedAt := 0
     Macro.lastActionAt := 0
+    Macro.powerBarAddr := 0
     Macro.castThreshold := ResolveCastThreshold()
-    Macro.castWaitTimeoutMs := MAIN["cast_timeout_ms"]
-    Macro.fishingEndGraceMs := MAIN["fishing_end_grace_ms"]
+    Macro.castWaitTimeoutMs := Max(GetMinCastTimeoutMs(), MAIN["cast_timeout_ms"] + 0)
+    Macro.fishingEndGraceMs := 100
     Macro.shakingIntervalMs := MAIN["shake_interval_ms"]
     Macro.phase := "CASTING"
 
@@ -137,6 +154,11 @@ StopMacroCycle(nextPhase := "OFF") {
     Macro.outcomeResolved := false
     Macro.lastShakedAt := 0
     Macro.lastActionAt := 0
+    Macro.reelGuiAddr := 0
+    Macro.reelBarAddr := 0
+    Macro.fishAddr := 0
+    Macro.playerbarAddr := 0
+    Macro.progressBarAddr := 0
     Macro.phase := nextPhase
 
     if (nextPhase = "DONE")
@@ -182,14 +204,9 @@ GetAutoTotemIntervalMs() {
     return Max(1, MAIN["auto_totem_interval_sec"] + 0) * 1000
 }
 
-GetAutoTotemSettleMs() {
+GetCycleStartDelayMs() {
     global MAIN
-    return Max(0, MAIN["post_catch_delay_ms"] + 0)
-}
-
-GetAutoTotemPostEquipMs() {
-    global MAIN
-    return Max(0, MAIN["post_totem_delay_ms"] + 0)
+    return Max(0, MAIN["pre_cast_delay_ms"] + 0)
 }
 
 IsAutoTotemBoundary() {
@@ -296,7 +313,7 @@ BeginAutoTotemWorkflow() {
     if (Macro.totemNeedsSettleDelay) {
         Macro.totemState := "TOTEM_SETTLE"
         Macro.totemWaitStartedAt := A_TickCount
-        AutoTotemDebugLog("waiting post-catch input lock before totem use")
+        AutoTotemDebugLog("waiting cycle start delay before totem use")
         return
     }
 
@@ -347,12 +364,12 @@ UpdateAutoTotemState() {
 
     switch Macro.totemState {
         case "TOTEM_SETTLE":
-            if ((A_TickCount - Macro.totemWaitStartedAt) < GetAutoTotemSettleMs())
+            if ((A_TickCount - Macro.totemWaitStartedAt) < GetCycleStartDelayMs())
                 return
 
             Macro.totemNeedsSettleDelay := false
             Macro.totemWaitStartedAt := 0
-            AutoTotemDebugLog("post-catch input lock cleared")
+            AutoTotemDebugLog("cycle start delay cleared")
             RunAutoTotemWorkflowStep()
             return
 
@@ -439,12 +456,8 @@ CompleteAutoTotemWorkflow(success := false) {
 
     ResetAutoTotemControl()
 
-    if (needsRodReequip) {
+    if (needsRodReequip)
         EnsureRodEquipped()
-        postEquipMs := GetAutoTotemPostEquipMs()
-        if (postEquipMs > 0)
-            Sleep(postEquipMs)
-    }
 
     if (!success && MAIN["auto_totem_mode"] = "expire")
         Macro.totemBlockedUntilCatchEnd := true
@@ -460,7 +473,8 @@ UpdateCastingPhase() {
 
     Macro.progressPercent := ""
 
-    if (MAIN["pre_cast_delay_ms"] > 0 && (A_TickCount - Macro.castStartedAt) < MAIN["pre_cast_delay_ms"])
+    cycleStartDelayMs := GetCycleStartDelayMs()
+    if (cycleStartDelayMs > 0 && (A_TickCount - Macro.castStartedAt) < cycleStartDelayMs)
         return
 
     HoldMouse()
@@ -539,17 +553,31 @@ UpdateFishingPhase() {
 
     Macro.powerPercent := ""
 
+    ctx := GetReelBarContext()
+
     progress := GetFishingCompletionPercent()
     Macro.progressPercent := (progress = "" ? "" : Round(progress))
 
     if (progress != "" && progress >= (MAIN["completion_threshold"] + 0.0))
         Macro.completionReached := true
 
-    if (GetReelGui()) {
+    if (Macro.completionReached) {
+        ReleaseMouse(true)
+        Controller.Reset()
+
+        if (IsReelGuiVisible()) {
+            Macro.fishingLostAt := 0
+            return
+        }
+
+        ctx := 0
+    }
+
+    if (ctx) {
         Macro.fishingLostAt := 0
 
-        if (HasActiveFishingContext())
-            Controller.Update()
+        if (HasActiveFishingContext(ctx))
+            Controller.Update(ctx)
         else
             ReleaseMouse()
         return
@@ -588,14 +616,14 @@ HoldMouse() {
     Macro.lastActionAt := A_TickCount
 }
 
-ReleaseMouse() {
+ReleaseMouse(force := false) {
     global Macro, MAIN
 
     if (!Macro.isHolding)
         return
 
     delay := MAIN["fishing_action_delay_ms"] + 0
-    if (delay > 0 && Macro.lastActionAt && (A_TickCount - Macro.lastActionAt) < delay)
+    if (!force && delay > 0 && Macro.lastActionAt && (A_TickCount - Macro.lastActionAt) < delay)
         return
 
     Send("{LButton up}")
@@ -637,33 +665,89 @@ GetReelGui() {
     return FindChildByName(playerGui, "reel")
 }
 
-GetReelBarContext() {
-    reelGui := GetReelGui()
+IsReelGuiVisible(reelGui := 0) {
+    global OFFSETS
+
     if (!reelGui)
+        reelGui := GetReelGui()
+    if (!reelGui)
+        return false
+
+    if (!OFFSETS.Has("ScreenGuiEnabled"))
+        return true
+
+    return ReadByte(reelGui + (OFFSETS["ScreenGuiEnabled"] + 0)) ? true : false
+}
+
+GetReelBarContext() {
+    global Macro
+
+    reelGui := GetReelGui()
+    if (!reelGui) {
+        Macro.reelBarAddr := 0
+        Macro.fishAddr := 0
+        Macro.playerbarAddr := 0
+        Macro.progressBarAddr := 0
         return 0
+    }
+
+    if (IsCachedAddrValid(Macro.reelBarAddr, "bar") && Macro.fishAddr && Macro.playerbarAddr) {
+        return {
+            bar: Macro.reelBarAddr,
+            fish: Macro.fishAddr,
+            playerbar: Macro.playerbarAddr
+        }
+    }
+
+    Macro.reelBarAddr := 0
+    Macro.fishAddr := 0
+    Macro.playerbarAddr := 0
 
     barFrame := FindChildByName(reelGui, "bar")
     if (!barFrame)
         return 0
 
+    fishAddr := FindChildByName(barFrame, "fish")
+    playerbarAddr := FindChildByName(barFrame, "playerbar")
+
+    Macro.reelBarAddr := barFrame
+    Macro.fishAddr := fishAddr
+    Macro.playerbarAddr := playerbarAddr
+
     return {
         bar: barFrame,
-        fish: FindChildByName(barFrame, "fish"),
-        playerbar: FindChildByName(barFrame, "playerbar")
+        fish: fishAddr,
+        playerbar: playerbarAddr
     }
 }
 
-HasActiveFishingContext() {
-    ctx := GetReelBarContext()
+HasActiveFishingContext(ctx := "") {
+    if (ctx = "")
+        ctx := GetReelBarContext()
     return (ctx && ctx.fish && ctx.playerbar) ? true : false
 }
 
 GetReelProgressContext() {
-    reelGui := GetReelGui()
-    if (!reelGui)
-        return 0
+    global Macro
 
-    controlBar := FindChildByName(reelGui, "bar")
+    reelGui := GetReelGui()
+    if (!reelGui) {
+        Macro.progressBarAddr := 0
+        return 0
+    }
+
+    if (IsCachedAddrValid(Macro.progressBarAddr, "bar") && IsCachedAddrValid(Macro.reelBarAddr, "bar")) {
+        return {
+            reel: reelGui,
+            controlBar: Macro.reelBarAddr,
+            progress: 0,
+            progressBar: Macro.progressBarAddr
+        }
+    }
+
+    Macro.progressBarAddr := 0
+
+    controlBar := IsCachedAddrValid(Macro.reelBarAddr, "bar") ? Macro.reelBarAddr : FindChildByName(reelGui, "bar")
     if (!controlBar)
         return 0
 
@@ -674,6 +758,8 @@ GetReelProgressContext() {
     progressBar := FindChildByName(progressFrame, "bar")
     if (!progressBar)
         return 0
+
+    Macro.progressBarAddr := progressBar
 
     return {
         reel: reelGui,
@@ -701,8 +787,9 @@ IsFishingCompletionReached(threshold := 99.7) {
     return (percent != "" && percent >= threshold)
 }
 
-IsIndicatorSafe() {
-    ctx := GetReelBarContext()
+IsIndicatorSafe(ctx := "") {
+    if (ctx = "")
+        ctx := GetReelBarContext()
     if (!ctx || !ctx.playerbar || !ctx.fish)
         return ""
 
@@ -721,6 +808,13 @@ IsIndicatorSafe() {
 }
 
 ResolvePowerBarPath() {
+    global Macro
+
+    if (IsCachedAddrValid(Macro.powerBarAddr, "bar"))
+        return { bar: Macro.powerBarAddr }
+
+    Macro.powerBarAddr := 0
+
     workspace := GetWorkspaceRoot()
     if (!workspace)
         return { bar: 0 }
@@ -749,6 +843,7 @@ ResolvePowerBarPath() {
     if (!bar)
         return { bar: 0 }
 
+    Macro.powerBarAddr := bar
     return { bar: bar }
 }
 
@@ -792,13 +887,15 @@ ReadNotePosition(frameAddr) {
 }
 
 GetNoteContainer() {
-    reelGui := GetReelGui()
-    if (!reelGui)
+    global Macro
+
+    if (IsCachedAddrValid(Macro.reelBarAddr, "bar"))
+        return FindChildByName(Macro.reelBarAddr, "noteContainer")
+
+    ctx := GetReelBarContext()
+    if (!ctx || !ctx.bar)
         return 0
-    barFrame := FindChildByName(reelGui, "bar")
-    if (!barFrame)
-        return 0
-    return FindChildByName(barFrame, "noteContainer")
+    return FindChildByName(ctx.bar, "noteContainer")
 }
 
 ; Returns the nearest airborne note to the bar's current X, or "" if none.
@@ -839,15 +936,18 @@ class FishingController {
         }
     }
 
-    Update() {
-        isSafe := IsIndicatorSafe()
+    Update(ctx := "") {
+        if (ctx = "")
+            ctx := GetReelBarContext()
+
+        isSafe := IsIndicatorSafe(ctx)
         if (isSafe = "") {
             this.Release()
             return
         }
 
-        fishPos := this.GetFishPosition()
-        playerbarPos := this.GetPlayerbarPosition()
+        fishPos := this.GetFishPosition(ctx)
+        playerbarPos := this.GetPlayerbarPosition(ctx)
 
         if (fishPos = "" || playerbarPos = "")
             return
@@ -931,8 +1031,9 @@ class FishingController {
         }
     }
 
-    GetFishPosition() {
-        ctx := GetReelBarContext()
+    GetFishPosition(ctx := "") {
+        if (ctx = "")
+            ctx := GetReelBarContext()
         if (!ctx || !ctx.fish)
             return ""
 
@@ -941,8 +1042,9 @@ class FishingController {
         return fishPos.X + (fishSize.X / 2)
     }
 
-    GetPlayerbarPosition() {
-        ctx := GetReelBarContext()
+    GetPlayerbarPosition(ctx := "") {
+        if (ctx = "")
+            ctx := GetReelBarContext()
         if (!ctx || !ctx.playerbar)
             return ""
 
@@ -970,9 +1072,11 @@ class PinionController extends FishingController {
         this.pinionNoteModeActive := false
     }
 
-    GetFishPosition() {
-        fishX := super.GetFishPosition()
-        playerbarX := this.GetPlayerbarPosition()
+    GetFishPosition(ctx := "") {
+        if (ctx = "")
+            ctx := GetReelBarContext()
+        fishX := super.GetFishPosition(ctx)
+        playerbarX := this.GetPlayerbarPosition(ctx)
 
         if (playerbarX = "")
             return fishX

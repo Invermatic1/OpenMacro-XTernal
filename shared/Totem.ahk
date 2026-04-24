@@ -238,6 +238,11 @@ TryUseHotbarItem(itemName) {
 }
 
 ResolveWorldStatuses() {
+    global g_CachedWorldStatuses
+
+    if (g_CachedWorldStatuses)
+        return g_CachedWorldStatuses
+
     localPlayer := GetLocalPlayer()
     if (!localPlayer)
         return 0
@@ -254,7 +259,11 @@ ResolveWorldStatuses() {
     if (!safezone)
         return 0
 
-    return FindChildByName(safezone, "worldstatuses")
+    worldStatuses := FindChildByName(safezone, "worldstatuses")
+    if (worldStatuses)
+        g_CachedWorldStatuses := worldStatuses
+
+    return worldStatuses
 }
 
 GetWorldStatusText(statusName) {
