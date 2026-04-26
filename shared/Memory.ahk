@@ -150,19 +150,50 @@ GetDataModel() {
     if (!AreOffsetsLoaded() || !H_PROCESS || !RBLX_BASE)
         return 0
 
-    fakeDataModelOffset := OFFSETS["FakeDataModelPointer"] + 0
-    fakeDataModel := ReadPointer(RBLX_BASE + fakeDataModelOffset)
+    dataModel := ResolveDataModelViaFakeDataModel()
+    if (!IsValidUserPointer(dataModel))
+        dataModel := ResolveDataModelViaVisualEngine()
 
-    if (!fakeDataModel)
-        return 0
-
-    dataModelOffset := OFFSETS["FakeDataModelToDataModel"] + 0
-    dataModel := ReadPointer(fakeDataModel + dataModelOffset)
-
-    if (dataModel)
+    if (IsValidUserPointer(dataModel))
         g_CachedDataModel := dataModel
 
     return dataModel
+}
+
+ResolveDataModelViaFakeDataModel() {
+    global OFFSETS, RBLX_BASE
+
+    if (!OFFSETS.Has("FakeDataModelPointer") || !OFFSETS.Has("FakeDataModelToDataModel"))
+        return 0
+
+    fakeDataModel := ReadPointer(RBLX_BASE + (OFFSETS["FakeDataModelPointer"] + 0))
+    if (!IsValidUserPointer(fakeDataModel))
+        return 0
+
+    return ReadPointer(fakeDataModel + (OFFSETS["FakeDataModelToDataModel"] + 0))
+}
+
+ResolveDataModelViaVisualEngine() {
+    global OFFSETS, RBLX_BASE
+
+    for _, key in ["VisualEnginePointer", "VisualEngineToDataModel1", "VisualEngineToDataModel2"] {
+        if (!OFFSETS.Has(key))
+            return 0
+    }
+
+    visualEngine := ReadPointer(RBLX_BASE + (OFFSETS["VisualEnginePointer"] + 0))
+    if (!IsValidUserPointer(visualEngine))
+        return 0
+
+    fakeDataModel := ReadPointer(visualEngine + (OFFSETS["VisualEngineToDataModel1"] + 0))
+    if (!IsValidUserPointer(fakeDataModel))
+        return 0
+
+    return ReadPointer(fakeDataModel + (OFFSETS["VisualEngineToDataModel2"] + 0))
+}
+
+IsValidUserPointer(val) {
+    return val && val >= 0x10000 && val <= 0x00007FFFFFFFFFFF
 }
 
 GetPlayers() {
