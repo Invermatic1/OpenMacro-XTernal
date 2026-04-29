@@ -337,10 +337,9 @@ GetGui() {
 
     MainTab.UseTab(4)
         mg.AddText("x10 y30 w300 h100 c" TextColor, "Version " FULL_VER).SetFont("s15 bold italic")
-        mg.AddText("x270 y33 w120 h50 c" TextColor, "April 26, 2026").SetFont("s12 bold")
+        mg.AddText("x270 y33 w120 h50 c" TextColor, "April 29, 2026").SetFont("s12 bold")
 
-        mg.AddText("x15 y70 w130 h20 c" TextColor, "What's New").SetFont("s13 bold")
-        mg.AddText("x15 y95 w370 h510 c" TextColor, "- You can now connect a Discord webhook to get session summaries sent straight to your server. Set it up in Advanced Settings under the Webhook tab.`n`n- The summary includes everything you actually care about: how long you've been running, fish caught and lost, success rate, the rod you're using, the active config, auto totem state, totems popped, and cast timeouts. Each of these can be toggled on or off individually.`n`n- You can pick how often summaries get posted. The first summary lands once that interval has passed, so you won't get spammed at startup.`n`n- Added an instant alert that pings your webhook the moment auto totem fails, so you can step in before the macro burns through a session.`n`n- Summaries only send while the macro is actually running. Stopping the macro pauses the webhook automatically, no extra clicks needed.`n`n- The macro now keeps a running count of cast timeouts and successful totem pops in the background, which feeds straight into the summary.").SetFont("s10")
+        mg.AddText("x15 y95 w370 h510 c" TextColor, "- Patched for Roblox Version-acc4b74f79e743b9").SetFont("s10")
 
     MainTab.UseTab(5)
     mg.AddText("x10 y30 w300 h40 c" TextColor, "OpenMacro XTernal").SetFont("s15 bold")
