@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
 MAJOR_VER       := "v0"
-FULL_VER        := "v0.1.15"
+FULL_VER        := "v0.2.15"
 ROBLOX_VER      := "version-acc4b74f79e743b9"
 GITHUB_OWNER        := "termx3"
 GITHUB_REPO         := "OpenMacro-XTernal"
@@ -99,7 +99,6 @@ GetDefaultSettings() {
     )
 
     defaults["main"] := Map(
-        "close_threshold", 0.01,
         "derivative_gain", 0.55,
         "edge_boundary", 0.1,
         "neutral_duty_cycle", 0.5,
@@ -117,6 +116,10 @@ GetDefaultSettings() {
         "fishing_action_delay_ms", 0,
         "completion_threshold", 99.7,
         "shake_interval_ms", 25,
+        "auto_appraise_enabled", 0,
+        "auto_appraise_mutation", "Mythical",
+        "auto_appraise_click_x", "",
+        "auto_appraise_click_y", "",
         "auto_totem_enabled", 0,
         "auto_totem_name", "Aurora Totem",
         "auto_totem_mode", "expire",
@@ -145,15 +148,24 @@ GetDefaultSettings() {
     )
 
     defaults["update"] := Map(
-        "auto_update", 1,
-        "show_confirmation", 0
+        "auto_update", 0,
+        "show_confirmation", 1
     )
 
     return defaults
 }
 
 GetObsoleteMainSettings() {
-    return ["fishing_end_grace_ms", "post_catch_delay_ms", "post_totem_delay_ms"]
+    return [
+        "close_threshold",
+        "fishing_end_grace_ms",
+        "post_catch_delay_ms",
+        "post_totem_delay_ms",
+        "auto_appraise_max_cash",
+        "auto_appraise_click_delay_ms",
+        "auto_appraise_check_delay_ms",
+        "auto_appraise_retry_delay_ms"
+    ]
 }
 
 GetMinCastTimeoutMs() {
@@ -180,6 +192,36 @@ NormalizeMainSettings(mainSettings) {
         normalized := Max(GetMinCastTimeoutMs(), Round(mainSettings["cast_timeout_ms"] + 0))
         if (normalized != mainSettings["cast_timeout_ms"]) {
             mainSettings["cast_timeout_ms"] := normalized
+            changed := true
+        }
+    }
+
+    if (mainSettings.Has("auto_appraise_enabled")) {
+        normalized := mainSettings["auto_appraise_enabled"] ? 1 : 0
+        if (normalized != mainSettings["auto_appraise_enabled"]) {
+            mainSettings["auto_appraise_enabled"] := normalized
+            changed := true
+        }
+    }
+
+    if (mainSettings.Has("auto_appraise_mutation")) {
+        normalized := Trim(mainSettings["auto_appraise_mutation"])
+        if (normalized = "")
+            normalized := "Mythical"
+        if (normalized != mainSettings["auto_appraise_mutation"]) {
+            mainSettings["auto_appraise_mutation"] := normalized
+            changed := true
+        }
+    }
+
+    for _, key in ["auto_appraise_click_x", "auto_appraise_click_y"] {
+        if (!mainSettings.Has(key))
+            continue
+
+        value := Trim(mainSettings[key])
+        normalized := (value != "" && IsNumber(value)) ? Round(value + 0) : ""
+        if (normalized != mainSettings[key]) {
+            mainSettings[key] := normalized
             changed := true
         }
     }

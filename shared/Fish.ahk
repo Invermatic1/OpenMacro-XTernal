@@ -8,6 +8,13 @@ ClearMacroPhaseCache() {
     Macro.playerbarAddr := 0
     Macro.progressBarAddr := 0
     Macro.powerBarAddr := 0
+    Macro.appraiseSubvaluesAddr := 0
+    Macro.appraiseState := "IDLE"
+    Macro.appraiseLastClickAt := 0
+    Macro.appraiseWaitStartedAt := 0
+    Macro.appraiseStartCoins := ""
+    Macro.appraiseEndCoins := ""
+    Macro.appraiseLastError := ""
 }
 
 CreateFishingMacro() {
@@ -49,7 +56,14 @@ CreateFishingMacro() {
         fishAddr: 0,
         playerbarAddr: 0,
         progressBarAddr: 0,
-        powerBarAddr: 0
+        powerBarAddr: 0,
+        appraiseSubvaluesAddr: 0,
+        appraiseLastClickAt: 0,
+        appraiseWaitStartedAt: 0,
+        appraiseStartCoins: "",
+        appraiseEndCoins: "",
+        appraiseState: "IDLE",
+        appraiseLastError: ""
     }
 }
 
@@ -94,7 +108,7 @@ InitializeCastCycle() {
 MacroLoop() {
     global Macro
 
-    if (UpdateAutoTotem()) {
+    if (Macro.phase != "APPRAISE" && UpdateAutoTotem()) {
         UpdateMacroStatus(GetMacroDisplayStatus(), "---", "---")
         return
     }
@@ -113,6 +127,8 @@ MacroLoop() {
                 StartMacroCycle()
             else
                 StopMacroCycle("OFF")
+        case "APPRAISE":
+            UpdateAppraisePhase()
         case "OFF":
     }
 
@@ -169,6 +185,8 @@ StopMacroCycle(nextPhase := "OFF") {
     Macro.fishAddr := 0
     Macro.playerbarAddr := 0
     Macro.progressBarAddr := 0
+    if (nextPhase = "OFF")
+        ClearAppraiseRuntimeCache()
     Macro.phase := nextPhase
 
     if (nextPhase = "DONE")
@@ -189,6 +207,8 @@ StopMacroCycle(nextPhase := "OFF") {
 
 GetMacroDisplayStatus() {
     global Macro
+    if (Macro.phase = "APPRAISE")
+        return "APPRAISE " Macro.appraiseState
     return (Macro.totemState != "IDLE") ? Macro.totemState : Macro.phase
 }
 
@@ -464,7 +484,7 @@ CompleteAutoTotemWorkflow(success := false) {
         Macro.totemPopCount += 1
         AutoTotemDebugLog("marked current night as covered")
     } else if (MAIN["webhook_alert_totem_failed"]) {
-        SendInstantAlert("Auto Totem Failed", "The auto totem workflow could not complete successfully.", 0xff4c4c)
+        SendInstantAlert("Auto Totem Failed", "The auto totem workflow could not complete successfully.")
     }
 
     ResetAutoTotemControl()
@@ -998,18 +1018,18 @@ class FishingController {
         predicted := playerbarPos + (playerbarVelocity * predictionScale)
         predictedError := fishPos - predicted
 
-        closeThreshold := MAIN["close_threshold"]
+        hardFixThreshold := 0.01
         sameSideAfterPrediction := (error * predictedError) > 0
 
         approachingTarget := (error * playerbarVelocity) > 0
-        remainingDistance := Max(0.0, Abs(error) - closeThreshold)
+        remainingDistance := Max(0.0, Abs(error) - hardFixThreshold)
 
         ; full stop fixing and start bleeding speed early
         brakeLookahead := Abs(playerbarVelocity) * 8
         needsPreSlow := approachingTarget && (brakeLookahead >= remainingDistance)
 
         ; hard fix only when far enough and not yet in the braking zone
-        if (Abs(error) > closeThreshold && sameSideAfterPrediction && !needsPreSlow) {
+        if (Abs(error) > hardFixThreshold && sameSideAfterPrediction && !needsPreSlow) {
             if (error > 0)
                 this.Hold()
             else

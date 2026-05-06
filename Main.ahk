@@ -32,6 +32,7 @@ You do not retain ownership rights that allow you to license or distribute the c
 #Include shared\Read.ahk
 #Include shared\Memory.ahk
 #Include shared\Totem.ahk
+#Include shared\Appraise.ahk
 #Include shared\Hotkeys.ahk
 #Include shared\Fish.ahk
 #Include shared\Webhook.ahk

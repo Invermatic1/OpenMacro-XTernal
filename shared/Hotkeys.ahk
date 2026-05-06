@@ -30,7 +30,10 @@ StartMacro() {
 
     if (Macro.cycleEnabled) {
         Macro.cycleEnabled := false
-        StopMacroCycle("OFF")
+        if (Macro.phase = "APPRAISE")
+            StopAppraiseCycle("OFF")
+        else
+            StopMacroCycle("OFF")
         return
     }
 
@@ -38,6 +41,12 @@ StartMacro() {
         return
 
     UpdateRobloxUiState()
+
+    if (IsAutoAppraiseRuntimeEnabled()) {
+        if (Macro.phase = "OFF" || Macro.phase = "DONE" || Macro.phase = "FAILED")
+            StartAppraiseCycle()
+        return
+    }
 
     if (!IsAnythingEquipped()) {
         SendInput("t")

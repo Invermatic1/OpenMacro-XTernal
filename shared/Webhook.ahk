@@ -148,7 +148,7 @@ SendSummaryWebhook() {
     WebhookSession.lastSummaryAt := A_TickCount
 }
 
-SendInstantAlert(title, desc, color := 0xff4c4c) {
+SendInstantAlert(title, desc, color := "") {
     global MAIN
 
     if !MAIN["webhook_enabled"]
@@ -161,6 +161,9 @@ SendInstantAlert(title, desc, color := 0xff4c4c) {
     content := "## " title
     if (desc != "")
         content .= "`n" desc
+
+    if (color = "")
+        color := GetWebhookAccentColor()
 
     container := Map(
         "type", 17,

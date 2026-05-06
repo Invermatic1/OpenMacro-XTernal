@@ -39,7 +39,7 @@ AreOffsetsLoaded() {
 }
 
 ResetRobloxAttachmentState() {
-    global H_PROCESS, RBLX_PID, RBLX_BASE, OFFSETS, ROD
+    global H_PROCESS, RBLX_PID, RBLX_BASE, OFFSETS, ROD, Macro
     global g_CachedDataModel, g_CachedLocalPlayer, g_CachedPlayerGui
     global g_CachedWorkspaceRoot, g_CachedWorldStatuses, g_CachedHotbarGui
 
@@ -49,6 +49,16 @@ ResetRobloxAttachmentState() {
     g_CachedWorkspaceRoot := 0
     g_CachedWorldStatuses := 0
     g_CachedHotbarGui := 0
+
+    if (IsSet(Macro) && Macro) {
+        Macro.appraiseSubvaluesAddr := 0
+        Macro.appraiseLastClickAt := 0
+        Macro.appraiseWaitStartedAt := 0
+        Macro.appraiseStartCoins := ""
+        Macro.appraiseEndCoins := ""
+        Macro.appraiseState := "IDLE"
+        Macro.appraiseLastError := ""
+    }
 
     if (H_PROCESS)
         DllCall("CloseHandle", "Ptr", H_PROCESS)
