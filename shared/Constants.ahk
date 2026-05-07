@@ -2,7 +2,7 @@
 
 MAJOR_VER       := "v0"
 FULL_VER        := "v0.2.17"
-ROBLOX_VER      := "version-acc4b74f79e743b9"
+ROBLOX_VER      := "version-bf6344c9c23446bf"
 GITHUB_OWNER        := "termx3"
 GITHUB_REPO         := "OpenMacro-XTernal"
 ; GITHUB_REPO       := "Canary-OpenMacro-XTernal" ; Canary channel
