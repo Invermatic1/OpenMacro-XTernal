@@ -84,7 +84,9 @@ ListConfigs() {
 SaveConfig(name, useDefaults := false) {
     global SETTINGS
 
-    data := useDefaults ? GetDefaultSettings()["main"] : SETTINGS["main"]
+    data := useDefaults ? GetDefaultSettings()["main"] : SETTINGS["main"].Clone()
+    PruneObsoleteMainSettings(data)
+    NormalizeMainSettings(data)
 
     try {
         file := FileOpen(CONFIGS_DIR "\" name ".json", "w")
@@ -109,18 +111,21 @@ LoadConfig(name) {
             MAIN[key] := value
         }
 
-        PruneObsoleteMainSettings(SETTINGS["main"])
-        PruneObsoleteMainSettings(MAIN)
-        NormalizeMainSettings(SETTINGS["main"])
-        NormalizeMainSettings(MAIN)
+        configDirty := PruneObsoleteMainSettings(SETTINGS["main"])
+        if (NormalizeMainSettings(SETTINGS["main"]))
+            configDirty := true
 
         defaults := GetDefaultSettings()["main"]
         for key, defaultVal in defaults {
             if (!MAIN.Has(key)) {
                 MAIN[key] := defaultVal
                 SETTINGS["main"][key] := defaultVal
+                configDirty := true
             }
         }
+
+        if (configDirty)
+            SaveConfig(name)
 
         SETTINGS["last_config"] := name
         SaveSettingsFile()
@@ -142,4 +147,46 @@ DeleteConfig(name) {
     } catch as err {
         MsgBox("Failed to delete config: " err.Message, "Config Error")
     }
+}
+
+MigrateAllConfigs() {
+    global SETTINGS, FULL_VER
+
+    if (SETTINGS.Has("last_migrated_version") && SETTINGS["last_migrated_version"] = FULL_VER)
+        return
+
+    if (!DirExist(CONFIGS_DIR))
+        return
+
+    defaults := GetDefaultSettings()["main"]
+
+    Loop Files, CONFIGS_DIR "\*.json" {
+        try {
+            jsonData := FileRead(A_LoopFileFullPath)
+            configMap := JSON.parse(jsonData)
+            changed := false
+
+            if (PruneObsoleteMainSettings(configMap))
+                changed := true
+            if (NormalizeMainSettings(configMap))
+                changed := true
+
+            for key, defaultVal in defaults {
+                if (!configMap.Has(key)) {
+                    configMap[key] := defaultVal
+                    changed := true
+                }
+            }
+
+            if (changed) {
+                file := FileOpen(A_LoopFileFullPath, "w")
+                file.Write(JSON.stringify(configMap, 4))
+                file.Close()
+            }
+        } catch {
+        }
+    }
+
+    SETTINGS["last_migrated_version"] := FULL_VER
+    SaveSettingsFile()
 }

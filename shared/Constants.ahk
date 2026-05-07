@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
 MAJOR_VER       := "v0"
-FULL_VER        := "v0.2.17"
+FULL_VER        := "v0.2.18"
 ROBLOX_VER      := "version-bf6344c9c23446bf"
 GITHUB_OWNER        := "termx3"
 GITHUB_REPO         := "OpenMacro-XTernal"
@@ -40,6 +40,8 @@ UPDATE          := SETTINGS["update"]
 MAIN            := SETTINGS["main"]
 APPEARANCE      := SETTINGS["appearance"]
 
+MigrateAllConfigs()
+
 LoadSettings() {
     settingsPath := APPDATA_DIR "\settings.json"
 
@@ -55,6 +57,9 @@ LoadSettings() {
 
         if (!settings.Has("custom_theme"))
             settings["custom_theme"] := settings["appearance"].Clone()
+
+        if (!settings.Has("last_migrated_version"))
+            settings["last_migrated_version"] := ""
 
         defaultMain := GetDefaultSettings()["main"]
         changed := false
@@ -139,6 +144,7 @@ GetDefaultSettings() {
     )
 
     defaults["last_config"] := ""
+    defaults["last_migrated_version"] := ""
     defaults["last_theme"] := "Default"
     defaults["custom_theme"] := Map(
         "accent_color", "5aa9ff",
