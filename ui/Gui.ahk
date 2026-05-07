@@ -357,15 +357,9 @@ GetGui() {
 
     MainTab.UseTab(4)
         mg.AddText("x10 y30 w300 h100 c" TextColor, "Version " FULL_VER).SetFont("s15 bold italic")
-        mg.AddText("x270 y33 w120 h50 c" TextColor, "May 6, 2026").SetFont("s12 bold")
+        mg.AddText("x270 y33 w120 h50 c" TextColor, "May 7, 2026").SetFont("s12 bold")
 
-        ChangelogText := "- Added Appraisal mode with mutation selection, click-point capture, and fast automatic appraising."
-            . "`n- Appraisal now reads fish info directly and stops when the selected mutation appears."
-            . "`n- Webhook finish alerts now include exact C$ spent, bonus Shiny/Sparkling attributes, and the current theme accent color."
-            . "`n- Added Appraisal tab guidance for webhook alerts, holding the fish, and setting the appraiser dialogue click point."
-            . "`n- Improved appraisal clicking reliability with screen-coordinate mouse movement before each click."
-            . "`n- Appraisal state is cleared cleanly on stop, reload, Roblox reset, or process reattach."
-            . "`n- Existing fishing behavior remains unchanged when the Appraisal master switch is off."
+        ChangelogText := "- Fixed compatibility with configs saved on older versions."
 
         mg.AddText("x15 y95 w370 h510 c" TextColor, ChangelogText).SetFont("s10")
 
