@@ -36,4 +36,9 @@ class button {
     OnEvent(eventName, callback) {
         this.ctrl.OnEvent(eventName, callback)
     }
+
+    Enabled {
+        get => this.ctrl.Enabled
+        set => this.ctrl.Enabled := Value
+    }
 }

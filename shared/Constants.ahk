@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
 MAJOR_VER       := "v0"
-FULL_VER        := "v0.2.19"
+FULL_VER        := "v0.2.20"
 ROBLOX_VER      := "version-bf6344c9c23446bf"
 GITHUB_OWNER        := "termx3"
 GITHUB_REPO         := "OpenMacro-XTernal"
@@ -38,6 +38,7 @@ ENV             := SETTINGS["env"]
 HOTKEYS         := SETTINGS["hotkeys"]
 UPDATE          := SETTINGS["update"]
 MAIN            := SETTINGS["main"]
+MAIN["auto_appraise_enabled"] := 0
 APPEARANCE      := SETTINGS["appearance"]
 
 MigrateAllConfigs()
@@ -76,6 +77,18 @@ LoadSettings() {
         if (NormalizeMainSettings(settings["main"]))
             changed := true
 
+        if (settings.Has("hotkeys") && !settings["hotkeys"].Has("stop_appraise")) {
+            fixKey    := settings["hotkeys"].Has("fix_roblox") ? settings["hotkeys"]["fix_roblox"] : "F3"
+            reloadKey := settings["hotkeys"].Has("reload")     ? settings["hotkeys"]["reload"]     : "F4"
+            if (fixKey = "F2") {
+                settings["hotkeys"]["fix_roblox"] := "F3"
+                if (reloadKey = "F3")
+                    settings["hotkeys"]["reload"] := "F4"
+            }
+            settings["hotkeys"]["stop_appraise"] := "F2"
+            changed := true
+        }
+
         if (changed)
             _WriteSettingsFile(settingsPath, settings)
 
@@ -98,9 +111,10 @@ GetDefaultSettings() {
     defaults["env"] := "prod"
 
     defaults["hotkeys"] := Map(
-        "fix_roblox", "F2",
-        "reload", "F3",
-        "start_macro", "F1"
+        "start_macro", "F1",
+        "stop_appraise", "F2",
+        "fix_roblox", "F3",
+        "reload", "F4"
     )
 
     defaults["main"] := Map(
@@ -121,7 +135,6 @@ GetDefaultSettings() {
         "fishing_action_delay_ms", 0,
         "completion_threshold", 99.7,
         "shake_interval_ms", 25,
-        "auto_appraise_enabled", 0,
         "auto_appraise_mutation", "Mythical",
         "auto_appraise_click_x", "",
         "auto_appraise_click_y", "",
@@ -170,7 +183,8 @@ GetObsoleteMainSettings() {
         "auto_appraise_max_cash",
         "auto_appraise_click_delay_ms",
         "auto_appraise_check_delay_ms",
-        "auto_appraise_retry_delay_ms"
+        "auto_appraise_retry_delay_ms",
+        "auto_appraise_enabled"
     ]
 }
 
@@ -198,14 +212,6 @@ NormalizeMainSettings(mainSettings) {
         normalized := Max(GetMinCastTimeoutMs(), Round(mainSettings["cast_timeout_ms"] + 0))
         if (normalized != mainSettings["cast_timeout_ms"]) {
             mainSettings["cast_timeout_ms"] := normalized
-            changed := true
-        }
-    }
-
-    if (mainSettings.Has("auto_appraise_enabled")) {
-        normalized := mainSettings["auto_appraise_enabled"] ? 1 : 0
-        if (normalized != mainSettings["auto_appraise_enabled"]) {
-            mainSettings["auto_appraise_enabled"] := normalized
             changed := true
         }
     }

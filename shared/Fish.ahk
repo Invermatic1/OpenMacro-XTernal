@@ -122,6 +122,8 @@ MacroLoop() {
             UpdateShakePhase()
         case "FISHING":
             UpdateFishingPhase()
+        case "TRANQUILITY":
+            UpdateTranquilityPhase()
         case "DONE":
             if (Macro.cycleEnabled)
                 StartMacroCycle()
@@ -156,7 +158,12 @@ StartMacroCycle() {
         }
     }
 
-    Controller := IsPinionRodText(ROD) ? PinionController() : FishingController()
+    if (IsTranquilityRodText(ROD))
+        Controller := TranquilityController()
+    else if (IsPinionRodText(ROD))
+        Controller := PinionController()
+    else
+        Controller := FishingController()
     ReleaseMouse()
     Controller.Reset()
     InitializeCastCycle()
@@ -563,11 +570,18 @@ UpdateCastedPhase() {
 }
 
 UpdateShakePhase() {
-    global Macro
+    global Macro, ROD
 
     Macro.powerPercent := ""
     Macro.progressPercent := ""
     ReleaseMouse()
+
+    if (IsTranquilityRodText(ROD) && GetTranquilityLaneContainer()) {
+        Macro.lastShakedAt := 0
+        Macro.fishingLostAt := 0
+        Macro.phase := "TRANQUILITY"
+        return
+    }
 
     if (HasActiveFishingContext()) {
         Macro.lastShakedAt := 0
@@ -623,6 +637,41 @@ UpdateFishingPhase() {
 
     ReleaseMouse()
     Controller.Reset()
+
+    if (!Macro.fishingLostAt)
+        Macro.fishingLostAt := A_TickCount
+
+    if ((A_TickCount - Macro.fishingLostAt) >= Macro.fishingEndGraceMs) {
+        if (!Macro.outcomeResolved) {
+            Macro.outcomeResolved := true
+            if (Macro.completionReached)
+                Macro.fishCaughtCount += 1
+            else
+                Macro.fishLostCount += 1
+        }
+        StopMacroCycle("DONE")
+    }
+}
+
+UpdateTranquilityPhase() {
+    global Macro, Controller, MAIN
+
+    Macro.powerPercent := ""
+
+    root := GetTranquilityRoot()
+    progress := ReadTranquilityProgressPercent(root)
+    Macro.progressPercent := (progress = "" ? "" : Round(progress))
+
+    if (progress != "" && progress >= (MAIN["completion_threshold"] + 0.0))
+        Macro.completionReached := true
+
+    container := root ? GetTranquilityLaneContainer(root) : 0
+
+    if (container) {
+        Macro.fishingLostAt := 0
+        Controller.Update()
+        return
+    }
 
     if (!Macro.fishingLostAt)
         Macro.fishingLostAt := A_TickCount
@@ -701,6 +750,83 @@ GetReelGui() {
         return 0
 
     return FindChildByName(playerGui, "reel")
+}
+
+GetTranquilityGui() {
+    playerGui := FindPlayerGui()
+    if (!playerGui)
+        return 0
+
+    return FindChildByName(playerGui, "TranquilityRodRhythmGame")
+}
+
+GetTranquilityRoot(gui := 0) {
+    gui := gui ? gui : GetTranquilityGui()
+    return gui ? FindChildByName(gui, "RhythmGame") : 0
+}
+
+GetTranquilityLaneContainer(root := 0) {
+    root := root ? root : GetTranquilityRoot()
+    return root ? FindChildByName(root, "LaneContainer") : 0
+}
+
+GetTranquilityLane(index, container := 0) {
+    container := container ? container : GetTranquilityLaneContainer()
+    return container ? FindChildByName(container, "Lane" index) : 0
+}
+
+GetTranquilityHealthFill(root := 0) {
+    root := root ? root : GetTranquilityRoot()
+    if (!root)
+        return 0
+
+    healthBar := FindChildByName(root, "HealthBar")
+    return healthBar ? FindChildByName(healthBar, "Fill") : 0
+}
+
+ReadTranquilityProgressPercent(root := 0) {
+    fill := GetTranquilityHealthFill(root)
+    if (!fill)
+        return ""
+
+    return ReadProgressBarPercent(fill)
+}
+
+ReadGuiObjectVisible(instanceAddr) {
+    global OFFSETS
+
+    if (!instanceAddr)
+        return false
+
+    className := ReadClassName(instanceAddr)
+    if (className = "TextLabel" && OFFSETS.Has("TextLabelVisible"))
+        return ReadByte(instanceAddr + (OFFSETS["TextLabelVisible"] + 0)) ? true : false
+
+    if OFFSETS.Has("FrameVisible")
+        return ReadByte(instanceAddr + (OFFSETS["FrameVisible"] + 0)) ? true : false
+
+    return true
+}
+
+IsReasonableGuiScale(value) {
+    return value > -5.0 && value < 5.0
+}
+
+GetTranquilityLaneKey(index, root := 0, lane := 0) {
+    static fallbackKeys := Map(1, "A", 2, "S", 3, "D", 4, "F")
+
+    root := root ? root : GetTranquilityRoot()
+    label := root ? FindChildByName(root, "KeyLabel" index) : 0
+    if (!label && lane)
+        label := FindChildByName(lane, "KeyLabel")
+
+    if (label) {
+        keyText := Trim(ReadGuiText(label))
+        if (StrLen(keyText) = 1)
+            return StrUpper(keyText)
+    }
+
+    return fallbackKeys.Has(index) ? fallbackKeys[index] : ""
 }
 
 IsReelGuiVisible(reelGui := 0) {
@@ -1149,5 +1275,83 @@ class PinionController extends FishingController {
             return fishX
 
         return note.sx
+    }
+}
+
+class TranquilityController {
+    static HIT_Y_MIN := 0.78
+    static HIT_Y_MAX := 0.90
+    static KEY_COOLDOWN_MS := 30
+
+    __New() {
+        this.hitNotes := Map()
+        this.lastKeySentAt := Map()
+    }
+
+    Reset() {
+        ReleaseMouse(true)
+        this.hitNotes := Map()
+        this.lastKeySentAt := Map()
+    }
+
+    Update(ctx := "") {
+        ReleaseMouse(true)
+
+        root := GetTranquilityRoot()
+        if (!root)
+            return
+
+        container := GetTranquilityLaneContainer(root)
+        if (!container)
+            return
+
+        seenNotes := Map()
+
+        Loop 4 {
+            lane := GetTranquilityLane(A_Index, container)
+            if (!lane || !ReadGuiObjectVisible(lane))
+                continue
+
+            key := GetTranquilityLaneKey(A_Index, root, lane)
+            if (key = "")
+                continue
+
+            for noteAddr in ReadChildren(lane) {
+                if (ReadInstanceName(noteAddr) != "Note" || ReadClassName(noteAddr) != "ImageLabel")
+                    continue
+
+                seenNotes[noteAddr] := true
+                if (this.hitNotes.Has(noteAddr) || !ReadGuiObjectVisible(noteAddr))
+                    continue
+
+                pos := ReadNotePosition(noteAddr)
+                if (!IsReasonableGuiScale(pos.sy))
+                    continue
+
+                if (pos.sy >= TranquilityController.HIT_Y_MIN && pos.sy <= TranquilityController.HIT_Y_MAX)
+                    this.PressLaneKey(key, noteAddr)
+            }
+        }
+
+        staleNotes := []
+        for noteAddr, _ in this.hitNotes {
+            if (!seenNotes.Has(noteAddr))
+                staleNotes.Push(noteAddr)
+        }
+
+        for _, noteAddr in staleNotes
+            this.hitNotes.Delete(noteAddr)
+    }
+
+    PressLaneKey(key, noteAddr) {
+        now := A_TickCount
+        lastSentAt := this.lastKeySentAt.Has(key) ? this.lastKeySentAt[key] : 0
+        if (lastSentAt && (now - lastSentAt) < TranquilityController.KEY_COOLDOWN_MS)
+            return false
+
+        SendInput("{" key "}")
+        this.lastKeySentAt[key] := now
+        this.hitNotes[noteAddr] := now
+        return true
     }
 }

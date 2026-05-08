@@ -32,7 +32,7 @@ GetGui() {
     RobloxStatusCtrl := mg.AddText("x295 y3 w200 h15 c" TextColor, GetRobloxStatusText())
     RobloxStatusCtrl.SetFont("s9 bold")
 
-    MainTab := mg.AddTab3("x0 y0 w400 h600 c" Accent, ["Home", "Appraisal", "Settings", "Changelog", "Credits"])
+    MainTab := mg.AddTab3("x0 y0 w400 h630 c" Accent, ["Home", "Appraisal", "Settings", "Changelog", "Credits"])
     MainTab.SetFont("bold")
 
     MainTab.UseTab(1)
@@ -138,7 +138,7 @@ GetGui() {
     ChangeHotkeysBtn.SetFont("s10 underline")
     ChangeHotkeysBtn.OnEvent("Click", (*) => MainTab.Choose(3))
 
-    mg.AddGroupBox("x10 y495 w380 h70 c" TextColor, "Config").SetFont("s9 bold")
+    mg.AddGroupBox("x10 y495 w380 h50 c" TextColor, "Config").SetFont("s9 bold")
 
     configList := ListConfigs()
     ddlItems := configList.Length > 0 ? configList : ["No configs"]
@@ -155,37 +155,37 @@ GetGui() {
     LoadConfigBtn := button(mg, "Load", 190, 515, {
         w: 42,
         h: 22,
-        bg: Accent
+        bg: BgColor
     })
     LoadConfigBtn.OnEvent("Click", (*) => OnLoadConfig(ConfigDDL))
 
     SaveConfigBtn := button(mg, "Save", 237, 515, {
         w: 42,
         h: 22,
-        bg: Accent
+        bg: BgColor
     })
     SaveConfigBtn.OnEvent("Click", (*) => OnSaveConfig(ConfigDDL))
 
     NewConfigBtn := button(mg, "New", 284, 515, {
         w: 42,
         h: 22,
-        bg: Accent
+        bg: BgColor
     })
     NewConfigBtn.OnEvent("Click", (*) => OnNewConfig(ConfigDDL))
 
     DeleteConfigBtn := button(mg, "Del", 331, 515, {
         w: 42,
         h: 22,
-        bg: Accent
+        bg: BgColor
     })
     DeleteConfigBtn.OnEvent("Click", (*) => OnDeleteConfig(ConfigDDL))
     
-    OpenConfigsBtn := mg.AddText("x20 y540 w58 h20 c" Accent, "Open folder")
+    OpenConfigsBtn := mg.AddText("x20 y580 w150 h20 c" Accent, "Open Configs folder")
     OpenConfigsBtn.SetFont("underline")
     OpenConfigsBtn.OnEvent("Click", (*) => Run("explorer.exe `"" CONFIGS_DIR "`""))
 
-    OpenAdvSettingsBtn := mg.AddText("x90 y540 w100 h20 c" Accent, "Advanced Settings")
-    OpenAdvSettingsBtn.SetFont("underline")
+    OpenAdvSettingsBtn := mg.AddText("x20 y600 w150 h20 c" Accent, "Open Advanced Settings")
+    OpenAdvSettingsBtn.SetFont("s10 underline")
     OpenAdvSettingsBtn.OnEvent("Click", (*) => GetAdvSettingsGui())
 
     MainTab.UseTab(2)
@@ -230,23 +230,22 @@ GetGui() {
     mg.AddText("x190 y116 w15 h20 c" TextColor, "X").SetFont("s9")
     mg.AddText("x290 y116 w15 h20 c" TextColor, "Y").SetFont("s9")
 
-    PickAppraisePointBtn := mg.AddButton("x20 y145 w110 h25", "Pick Click Point")
-    StartAppraisingBtn := mg.AddButton("x145 y145 w120 h25", "Start Appraising")
-    ClearAppraisePointBtn := mg.AddButton("x280 y145 w100 h25", "Clear Point")
+    PickAppraisePointBtn := button(mg, "Pick Click Point", 20, 145, { w: 170, h: 25, bg: BgColor })
+    ClearAppraisePointBtn := button(mg, "Clear Point", 200, 145, { w: 170, h: 25, bg: BgColor })
 
     global AppraiseStatusText := mg.AddText("x20 y180 w360 h30 c" TextColor, "Status: Ready.")
 
-    mg.AddGroupBox("x10 y225 w380 h110 c" TextColor, "Guide").SetFont("s9 bold")
+    mg.AddGroupBox("x10 y225 w380 h160 c" TextColor, "Guide").SetFont("s9 bold")
     mg.AddText("x20 y245 w360 h20 c" SubColor, "Webhook enabled: you'll be notified when appraising finishes.").SetFont("s9")
     mg.AddText("x20 y270 w360 h20 c" SubColor, "Hold the fish you want appraised before starting.").SetFont("s9")
     mg.AddText("x20 y295 w360 h30 c" SubColor, "Set the click point on the appraiser dialogue option, then start appraising.").SetFont("s9")
+    mg.AddText("x20 y330 w360 h20 c" SubColor, HOTKEYS["start_macro"] ": Start Appraising").SetFont("s9")
+    mg.AddText("x20 y355 w360 h20 c" SubColor, HOTKEYS["stop_appraise"] ": Stop Appraising").SetFont("s9")
 
     AutoAppraise.OnEvent("Click", SaveAutoAppraiseEnabled)
     AutoAppraiseMutation.OnEvent("Change", SaveAutoAppraiseMutation)
     PickAppraisePointBtn.OnEvent("Click", BeginPickAppraisePoint)
-    StartAppraisingBtn.OnEvent("Click", StartAppraisingClicked)
     ClearAppraisePointBtn.OnEvent("Click", ClearAppraisePoint)
-    UpdateAppraiseControls()
 
     MainTab.UseTab(3)
 
@@ -281,33 +280,38 @@ GetGui() {
     StartMacroKey := mg.AddHotkey("x10 y200 w30 h20", SETTINGS["hotkeys"]["start_macro"])
     StartMacroKey.OnEvent("Change", (ctrl, *) => UpdateHotkey("start_macro", ctrl))
     mg.AddText("x50 y199 w100 h20 c" TextColor, "Start Macro").SetFont("s11")
-    mg.AddText("x50 y220 w250 h25 c646464", "Change the hotkey with which you start the macro.")
+    mg.AddText("x50 y218 w250 h20 c646464", "Change the hotkey with which you start the macro.")
 
-    FixRbxKey := mg.AddHotkey("x10 y260 w30 h20", SETTINGS["hotkeys"]["fix_roblox"])
+    StopAppraiseKey := mg.AddHotkey("x10 y248 w30 h20", SETTINGS["hotkeys"].Has("stop_appraise") ? SETTINGS["hotkeys"]["stop_appraise"] : "F2")
+    StopAppraiseKey.OnEvent("Change", (ctrl, *) => UpdateHotkey("stop_appraise", ctrl))
+    mg.AddText("x50 y247 w150 h20 c" TextColor, "Stop Appraising").SetFont("s11")
+    mg.AddText("x50 y266 w250 h20 c646464", "Stops an active appraise cycle.")
+
+    FixRbxKey := mg.AddHotkey("x10 y300 w30 h20", SETTINGS["hotkeys"]["fix_roblox"])
     FixRbxKey.OnEvent("Change", (ctrl, *) => UpdateHotkey("fix_roblox", ctrl))
-    mg.AddText("x50 y259 w100 h20 c" TextColor, "Fix Roblox").SetFont("s11")
-    mg.AddText("x50 y279 w250 h25 c646464", "Change the hotkey with which you attempt fixes to roblox related issues.")
-    FixRbxHelpBtn := mg.AddText("x125 y262 w100 h20 c" Accent, "Learn More")
+    mg.AddText("x50 y299 w100 h20 c" TextColor, "Fix Roblox").SetFont("s11")
+    mg.AddText("x50 y317 w250 h20 c646464", "Change the hotkey with which you attempt fixes to roblox related issues.")
+    FixRbxHelpBtn := mg.AddText("x125 y302 w100 h20 c" Accent, "Learn More")
     FixRbxHelpBtn.SetFont("s9 underline")
     FixRbxHelpBtn.OnEvent("Click", (*) => InfoPopup.Show("Fix Roblox", "Re-attaches XTernal to the running Roblox process and reloads memory offsets. Also checks whether the running Roblox version matches the latest release — if they differ, offsets may be out of date and the macro could behave incorrectly."))
 
-    ReloadKey := mg.AddHotkey("x10 y320 w30 h20", SETTINGS["hotkeys"]["reload"])
+    ReloadKey := mg.AddHotkey("x10 y350 w30 h20", SETTINGS["hotkeys"]["reload"])
     ReloadKey.OnEvent("Change", (ctrl, *) => UpdateHotkey("reload", ctrl))
-    mg.AddText("x50 y319 w100 h20 c" TextColor, "Reload").SetFont("s11")
-    mg.AddText("x50 y339 w250 h25 c646464", "Change the hotkey with which you reload the macro.")
+    mg.AddText("x50 y349 w100 h20 c" TextColor, "Reload").SetFont("s11")
+    mg.AddText("x50 y368 w250 h20 c646464", "Change the hotkey with which you reload the macro.")
 
-    AppearanceHeader := mg.AddText("x10 y380 w400 h40 c" TextColor, "Appearance")
+    AppearanceHeader := mg.AddText("x10 y400 w400 h40 c" TextColor, "Appearance")
     AppearanceHeader.SetFont("s15")
-    border(mg, 10, 415, 380, 1)
+    border(mg, 10, 435, 380, 1)
 
-    mg.AddText("x10 y422 w80 h20 c" TextColor, "Theme").SetFont("s10")
+    mg.AddText("x10 y442 w80 h20 c" TextColor, "Theme").SetFont("s10")
     builtInThemes := GetBuiltInThemes()
     themeNames := []
     for name, _ in builtInThemes
         themeNames.Push(name)
     themeNames.Push("Custom")
 
-    ThemeDDL := mg.AddDDL("x260 y420 w110 h200", themeNames)
+    ThemeDDL := mg.AddDDL("x260 y440 w110 h200", themeNames)
     lastTheme := SETTINGS.Has("last_theme") ? SETTINGS["last_theme"] : "Custom"
     if (lastTheme != "") {
         try ControlChooseString(lastTheme, ThemeDDL)
@@ -317,21 +321,21 @@ GetGui() {
         ThemeDDL.Choose(themeNames.Length)
     }
 
-    mg.AddText("x10 y452 w100 h20 c" TextColor, "Accent color").SetFont("s10")
-    AccentInput := mg.AddEdit("x260 y451 w80 h20", APPEARANCE["accent_color"])
-    AccentSwatch := mg.AddText("x350 y451 w20 h20 +Border Background" APPEARANCE["accent_color"], "")
+    mg.AddText("x10 y472 w100 h20 c" TextColor, "Accent color").SetFont("s10")
+    AccentInput := mg.AddEdit("x260 y471 w80 h20", APPEARANCE["accent_color"])
+    AccentSwatch := mg.AddText("x350 y471 w20 h20 +Border Background" APPEARANCE["accent_color"], "")
 
-    mg.AddText("x10 y479 w100 h20 c" TextColor, "Background").SetFont("s10")
-    BgInput := mg.AddEdit("x260 y478 w80 h20", APPEARANCE["bg_color"])
-    BgSwatch := mg.AddText("x350 y478 w20 h20 +Border Background" APPEARANCE["bg_color"], "")
+    mg.AddText("x10 y499 w100 h20 c" TextColor, "Background").SetFont("s10")
+    BgInput := mg.AddEdit("x260 y498 w80 h20", APPEARANCE["bg_color"])
+    BgSwatch := mg.AddText("x350 y498 w20 h20 +Border Background" APPEARANCE["bg_color"], "")
 
-    mg.AddText("x10 y506 w100 h20 c" TextColor, "Text color").SetFont("s10")
-    TextInput := mg.AddEdit("x260 y505 w80 h20", APPEARANCE["text_color"])
-    TextSwatch := mg.AddText("x350 y505 w20 h20 +Border Background" APPEARANCE["text_color"], "")
+    mg.AddText("x10 y526 w100 h20 c" TextColor, "Text color").SetFont("s10")
+    TextInput := mg.AddEdit("x260 y525 w80 h20", APPEARANCE["text_color"])
+    TextSwatch := mg.AddText("x350 y525 w20 h20 +Border Background" APPEARANCE["text_color"], "")
 
-    mg.AddText("x10 y533 w100 h20 c" TextColor, "Border color").SetFont("s10")
-    BorderInput := mg.AddEdit("x260 y532 w80 h20", APPEARANCE["border_color"])
-    BorderSwatch := mg.AddText("x350 y532 w20 h20 +Border Background" APPEARANCE["border_color"], "")
+    mg.AddText("x10 y553 w100 h20 c" TextColor, "Border color").SetFont("s10")
+    BorderInput := mg.AddEdit("x260 y552 w80 h20", APPEARANCE["border_color"])
+    BorderSwatch := mg.AddText("x350 y552 w20 h20 +Border Background" APPEARANCE["border_color"], "")
     appearanceFields := [
         {key: "accent_color", ctrl: AccentInput, swatch: AccentSwatch, label: "Accent color"},
         {key: "bg_color", ctrl: BgInput, swatch: BgSwatch, label: "Background"},
@@ -341,7 +345,7 @@ GetGui() {
 
     ThemeDDL.OnEvent("Change", (*) => ApplyThemePreset(ThemeDDL, builtInThemes, appearanceFields))
 
-    ApplyAppearanceBtn := button(mg, "Apply", 290, 562, {
+    ApplyAppearanceBtn := button(mg, "Apply", 290, 582, {
         w: 80,
         h: 25,
         bg: Accent
@@ -352,16 +356,16 @@ GetGui() {
     OpenSettingsBtn.SetFont("underline")
     OpenSettingsBtn.OnEvent("Click", (*) => Run("explorer.exe `"" APPDATA_DIR "`""))
 
-    mg.AddText("x10 y565 w240 h20 c" SubColor, "Press Apply to save and reload.")
+    mg.AddText("x10 y585 w240 h20 c" SubColor, "Press Apply to save and reload.")
 
 
     MainTab.UseTab(4)
         mg.AddText("x10 y30 w300 h100 c" TextColor, "Version " FULL_VER).SetFont("s15 bold italic")
         mg.AddText("x270 y33 w120 h50 c" TextColor, "May 7, 2026").SetFont("s12 bold")
 
-        ChangelogText := "- Fixed compatibility with configs saved on older versions."
+        ChangelogText := "-Fixed Appraisal bugs.`n- Fixed Appraisal breaking fishing`n- Added Hotkeys for appraisal.`n- Applied design to buttons in appraisal tab.`n - Extended appraisal guide`n`n- Added Support for Tranquility Rod"
 
-        mg.AddText("x15 y95 w370 h510 c" TextColor, ChangelogText).SetFont("s10")
+        mg.AddText("x15 y65 w370 h510 c" TextColor, ChangelogText).SetFont("s10")
 
     MainTab.UseTab(5)
     mg.AddText("x10 y30 w300 h40 c" TextColor, "OpenMacro XTernal").SetFont("s15 bold")
@@ -377,7 +381,7 @@ GetGui() {
     CreditsWebLink.SetFont("underline")
     CreditsWebLink.OnEvent("Click", (*) => Run("https://discord.gg/d2gqxEUx7U"))
 
-    mg.Show("w400 h600 y100 x1100")
+    mg.Show("w400 h630 y100 x1100")
     UpdateRobloxUiState()
     UpdateMacroStatus("OFF", "---", "---")
     MainTab.Choose(1)
@@ -402,11 +406,9 @@ GetGui() {
     }
 
     SaveAutoAppraiseEnabled(ctrl, *) {
-        global MAIN, SETTINGS
+        global MAIN
 
         MAIN["auto_appraise_enabled"] := ctrl.Value ? 1 : 0
-        SETTINGS["main"]["auto_appraise_enabled"] := MAIN["auto_appraise_enabled"]
-        SaveSettingsFile()
     }
 
     SaveAutoAppraiseMutation(ctrl, *) {
@@ -423,7 +425,6 @@ GetGui() {
 
     BeginPickAppraisePoint(*) {
         PickAppraisePointBtn.Enabled := false
-        StartAppraisingBtn.Enabled := false
         SetAppraiseStatus("Waiting for right-click...")
         CoordMode("Mouse", "Screen")
         Hotkey("RButton", CaptureAppraisePoint, "On")
@@ -480,17 +481,7 @@ GetGui() {
         SetAppraiseStatus("Click point cleared.")
     }
 
-    StartAppraisingClicked(*) {
-        if (!AutoAppraise.Value) {
-            AutoAppraise.Value := 1
-            SaveAutoAppraiseEnabled(AutoAppraise)
-        }
-
-        StartMacro()
-    }
-
     UpdateAppraiseControls() {
-        StartAppraisingBtn.Enabled := HasAutoAppraiseClickPoint()
     }
 }
 
@@ -639,6 +630,7 @@ UpdateHotkey(name, ctrl) {
     if (newKey != "") {
         actionNames := Map(
             "start_macro", "Start Macro",
+            "stop_appraise", "Stop Appraising",
             "fix_roblox", "Fix Roblox",
             "reload", "Reload"
         )
@@ -655,9 +647,10 @@ UpdateHotkey(name, ctrl) {
         }
     }
 
-    callback := (name = "start_macro") ? (*) => StartMacro()
-              : (name = "fix_roblox") ? (*) => FixRoblox()
-              : (*) => ReloadMacro()
+    callback := (name = "start_macro")   ? (*) => StartMacro()
+              : (name = "stop_appraise") ? (*) => StopAppraisingHotkey()
+              : (name = "fix_roblox")   ? (*) => FixRoblox()
+              :                           (*) => ReloadMacro()
 
     HotkeyManager.ChangeHotkey(oldKey, newKey, callback)
     SETTINGS["hotkeys"][name] := newKey

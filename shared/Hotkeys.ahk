@@ -87,12 +87,20 @@ ReloadMacro() {
     Reload()
 }
 
+StopAppraisingHotkey() {
+    global Macro
+    if (Macro.phase = "APPRAISE" && Macro.cycleEnabled)
+        StopAppraiseCycle("OFF", "Stopped by hotkey.")
+}
+
 class HotkeyManager {
     static activeHotkeys := Map()
 
     static RegisterAll(settings) {
         hotkeys := settings["hotkeys"]
         this.Register(hotkeys["start_macro"], (*) => StartMacro())
+        if (hotkeys.Has("stop_appraise") && hotkeys["stop_appraise"] != "")
+            this.Register(hotkeys["stop_appraise"], (*) => StopAppraisingHotkey())
         this.Register(hotkeys["fix_roblox"], (*) => FixRoblox())
         this.Register(hotkeys["reload"], (*) => ReloadMacro())
     }

@@ -414,7 +414,7 @@ GetHotbarRodDisplayText() {
         if (toolText = "")
             continue
 
-        if (ExtractPureRodName(toolText) != "" || IsPinionRodText(toolText))
+        if (ExtractPureRodName(toolText) != "" || IsPinionRodText(toolText) || IsTranquilityRodText(toolText))
             return toolText
 
         if (fallback = "")
@@ -427,6 +427,7 @@ GetHotbarRodDisplayText() {
 GetKnownRodNames() {
     static rodNames := [
         "Pinion's Aria",
+        "Tranquility Rod",
         "Rod Of The Eternal King",
         "Rod Of The Depths",
         "Rod Of Time",
@@ -474,6 +475,14 @@ IsPinionRodText(text) {
 
 HasPinionHotbarRod() {
     return IsPinionRodText(GetHotbarRodDisplayText())
+}
+
+IsTranquilityRodText(text) {
+    return InStr(StrLower(NormalizeRodDisplayText(text)), "tranquility") ? true : false
+}
+
+HasTranquilityHotbarRod() {
+    return IsTranquilityRodText(GetHotbarRodDisplayText())
 }
 
 ExtractPureRodName(text) {

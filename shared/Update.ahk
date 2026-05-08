@@ -511,7 +511,7 @@ CreateUpdateHelper(version, tempRoot, stageRoot) {
     lines.Push(":cleanup")
     lines.Push("if " q "%CLEANUP_TEMP%" q "==" q "1" q " (")
     lines.Push("    if exist " q "%TEMP_ROOT%" q " rmdir /s /q " q "%TEMP_ROOT%" q)
-    lines.Push("    start " q q " powershell -NoProfile -NonInteractive -WindowStyle Hidden -Command " q "Start-Sleep -Seconds 2; Remove-Item -LiteralPath '%~f0' -Force" q " >nul 2>nul")
+    lines.Push("    (goto) 2>nul & del /f /q " q "%~f0" q)
     lines.Push(")")
     lines.Push("exit /b 0")
 
@@ -543,8 +543,38 @@ EscapeBatchValue(value) {
 }
 
 LaunchUpdateHelper(helperPath) {
-    Run(A_ComSpec ' /c ""' helperPath '""', , "Hide", &helperPid)
-    return helperPid != 0
+    static CREATE_NO_WINDOW := 0x08000000
+
+    cmdLine := A_ComSpec ' /c ""' helperPath '""'
+    cmdBuf  := Buffer((StrLen(cmdLine) + 1) * 2)
+    StrPut(cmdLine, cmdBuf, "UTF-16")
+
+    siSize := A_PtrSize = 8 ? 104 : 68
+    piSize := A_PtrSize = 8 ? 24 : 16
+
+    si := Buffer(siSize, 0)
+    NumPut("UInt", siSize, si, 0)
+    pi := Buffer(piSize, 0)
+
+    success := DllCall("Kernel32.dll\CreateProcessW",
+        "Ptr", 0,
+        "Ptr", cmdBuf.Ptr,
+        "Ptr", 0,
+        "Ptr", 0,
+        "Int", 0,
+        "UInt", CREATE_NO_WINDOW,
+        "Ptr", 0,
+        "Ptr", 0,
+        "Ptr", si.Ptr,
+        "Ptr", pi.Ptr,
+        "Int")
+
+    if !success
+        return false
+
+    DllCall("Kernel32.dll\CloseHandle", "Ptr", NumGet(pi, 0, "Ptr"))
+    DllCall("Kernel32.dll\CloseHandle", "Ptr", NumGet(pi, A_PtrSize, "Ptr"))
+    return true
 }
 
 EnsurePostUpdateFlagDir() {

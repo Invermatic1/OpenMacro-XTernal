@@ -32,6 +32,11 @@ ClearAppraiseRuntimeCache() {
 StartAppraiseCycle() {
     global Macro, MAIN
 
+    if (!IsAnythingEquipped()) {
+        MsgBox("You have to have a fish selected when appraising.", "Appraisal")
+        return false
+    }
+
     if (!HasAutoAppraiseClickPoint()) {
         SetAppraiseStatus("Set a click point before appraising.")
         MsgBox("Set a click point in the Appraisal tab before starting.", "Appraisal")
@@ -62,7 +67,11 @@ StartAppraiseCycle() {
         Macro.appraiseStartCoins := ReadCurrentAppraiseCoins()
 
         if (HasDesiredMutationInCachedSubvalues(desiredMutation)) {
-            CompleteAppraiseCycle("Found " desiredMutation ".")
+            Macro.cycleEnabled := false
+            Macro.phase := "DONE"
+            Macro.appraiseState := "DONE"
+            SetAppraiseStatus(desiredMutation " mutation was already present.")
+            UpdateMacroStatus(GetMacroDisplayStatus(), "---", "---")
             return true
         }
 
