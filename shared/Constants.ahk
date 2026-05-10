@@ -55,15 +55,27 @@ LoadSettings() {
     try {
         jsonData := FileRead(settingsPath)
         settings := JSON.parse(jsonData)
+        changed := false
 
-        if (!settings.Has("custom_theme"))
+        if (!settings.Has("custom_theme")) {
             settings["custom_theme"] := settings["appearance"].Clone()
+            changed := true
+        }
 
-        if (!settings.Has("last_migrated_version"))
+        if (!settings.Has("last_migrated_version")) {
             settings["last_migrated_version"] := ""
+            changed := true
+        }
+
+        if (!settings.Has("telemetry") || !(settings["telemetry"] is Map)) {
+            settings["telemetry"] := GetDefaultSettings()["telemetry"].Clone()
+            changed := true
+        } else if (!settings["telemetry"].Has("enabled")) {
+            settings["telemetry"]["enabled"] := 1
+            changed := true
+        }
 
         defaultMain := GetDefaultSettings()["main"]
-        changed := false
         for key, val in defaultMain {
             if (!settings["main"].Has(key)) {
                 settings["main"][key] := val
@@ -109,6 +121,9 @@ GetDefaultSettings() {
     )
 
     defaults["env"] := "prod"
+    defaults["telemetry"] := Map(
+        "enabled", 1
+    )
 
     defaults["hotkeys"] := Map(
         "start_macro", "F1",

@@ -23,7 +23,7 @@ GetAdvSettingsGui() {
     button.DefaultTextColor := "0x" TextColor
     button.DefaultBg := "0x" Accent
 
-    MainTab := mg.AddTab3("x0 y0 w400 h420 c" Accent, ["Macro", "Auto Totem", "Webhook"])
+    MainTab := mg.AddTab3("x0 y0 w400 h420 c" Accent, ["Macro", "Auto Totem", "Webhook", "More"])
     MainTab.SetFont("bold")
 
     MainTab.UseTab(1)
@@ -160,6 +160,18 @@ GetAdvSettingsGui() {
     AlertTotemFailedCb := mg.AddCheckbox("x20 y262 h20 w20")
     mg.AddText("x40 y263 w200 h20 c" TextColor, "Auto Totem Failed").SetFont("s10")
 
+    MainTab.UseTab(4)
+    mg.AddGroupBox("x10 y25 w380 h115 c" TextColor, "Privacy").SetFont("s9 bold")
+
+    TelemetryEnabledCb := mg.AddCheckbox("x20 y52 h20 w20")
+    mg.AddText("x40 y53 w180 h20 c" TextColor, "Presence telemetry").SetFont("s10")
+    TelemetryHelp := mg.AddText("x270 y53 w60 h20 c" Accent, "What?")
+    TelemetryHelp.SetFont("underline")
+    TelemetryHelp.OnEvent("Click", (*) => InfoPopup.Show("Presence Telemetry", "Sends an anonymous install id, current app version, session id, and online/offline status. No usernames, Roblox data, configs, macro activity, HWIDs, or IP addresses are stored."))
+
+    mg.AddText("x40 y80 w315 h40 c" TextColor, "Helps show how many XTernal users are online and which versions are active.").SetFont("s9")
+    SaveMoreBtn := button(mg, "Save", 270, 110, {w: 100, h: 23, bg: BgColor, fontSize: 10})
+
     ApplyCastMode(showPopup := false, *) {
         switch CastMode.Text {
             case "Perfect":
@@ -223,6 +235,7 @@ GetAdvSettingsGui() {
         SummaryCastTimeoutsCb.Value := MAIN["webhook_summary_cast_timeouts"]
 
         AlertTotemFailedCb.Value := MAIN["webhook_alert_totem_failed"]
+        TelemetryEnabledCb.Value := IsTelemetryEnabled() ? 1 : 0
     }
 
     LoadFallbackTotemDdl(preferredName := "") {
@@ -438,6 +451,17 @@ GetAdvSettingsGui() {
         try SaveWebhookBtn.ctrl.Value := "Save"
     }
 
+    SaveMoreSettings(*) {
+        SetTelemetryEnabled(TelemetryEnabledCb.Value)
+
+        SaveMoreBtn.ctrl.Value := "Saved!"
+        SetTimer(RevertMoreBtn, -1500)
+    }
+
+    RevertMoreBtn(*) {
+        try SaveMoreBtn.ctrl.Value := "Save"
+    }
+
     PersistWebhookFlag(key, value) {
         MAIN[key] := value
         SETTINGS["main"][key] := value
@@ -454,6 +478,7 @@ GetAdvSettingsGui() {
     SaveTotemBtn.OnEvent("Click", SaveTotemSettings)
     TestWebhookBtn.OnEvent("Click", SendTestWebhook)
     SaveWebhookBtn.OnEvent("Click", SaveWebhookSettings)
+    SaveMoreBtn.OnEvent("Click", SaveMoreSettings)
 
     SummaryFishCb.OnEvent("Click", (ctrl, *) => PersistWebhookFlag("webhook_summary_fish", ctrl.Value))
     SummarySuccessRateCb.OnEvent("Click", (ctrl, *) => PersistWebhookFlag("webhook_summary_success_rate", ctrl.Value))
