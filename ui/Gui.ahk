@@ -363,7 +363,7 @@ GetGui() {
         mg.AddText("x10 y30 w300 h100 c" TextColor, "Version " FULL_VER).SetFont("s15 bold italic")
         mg.AddText("x270 y33 w120 h50 c" TextColor, "May 7, 2026").SetFont("s12 bold")
 
-        ChangelogText := "-Fixed Appraisal bugs.`n- Fixed Appraisal breaking fishing`n- Added Hotkeys for appraisal.`n- Applied design to buttons in appraisal tab.`n - Extended appraisal guide`n`n- Added Support for Tranquility Rod"
+        ChangelogText := "- General bug fixes"
 
         mg.AddText("x15 y65 w370 h510 c" TextColor, ChangelogText).SetFont("s10")
 
