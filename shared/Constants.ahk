@@ -67,14 +67,6 @@ LoadSettings() {
             changed := true
         }
 
-        if (!settings.Has("telemetry") || !(settings["telemetry"] is Map)) {
-            settings["telemetry"] := GetDefaultSettings()["telemetry"].Clone()
-            changed := true
-        } else if (!settings["telemetry"].Has("enabled")) {
-            settings["telemetry"]["enabled"] := 1
-            changed := true
-        }
-
         defaultMain := GetDefaultSettings()["main"]
         for key, val in defaultMain {
             if (!settings["main"].Has(key)) {
@@ -121,9 +113,6 @@ GetDefaultSettings() {
     )
 
     defaults["env"] := "prod"
-    defaults["telemetry"] := Map(
-        "enabled", 1
-    )
 
     defaults["hotkeys"] := Map(
         "start_macro", "F1",

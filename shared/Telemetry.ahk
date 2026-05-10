@@ -1,6 +1,6 @@
 #Requires AutoHotkey v2.0
 
-XTERNAL_TELEMETRY_API_URL := "http://157.230.201.82/api/v1/xternal"
+XTERNAL_TELEMETRY_API_URL := "https://openmacro.net/api/v1/xternal"
 TELEMETRY_STATE_PATH := APPDATA_DIR "\telemetry.json"
 TELEMETRY_HEARTBEAT_INTERVAL_MS := 45000
 
@@ -15,9 +15,6 @@ StartTelemetry() {
     global TelemetryStarted, TelemetryState, TELEMETRY_HEARTBEAT_INTERVAL_MS
 
     if (TelemetryStarted)
-        return
-
-    if !IsTelemetryEnabled()
         return
 
     TelemetryLoadState()
@@ -55,51 +52,6 @@ StopTelemetry() {
     TelemetryStarted := false
 }
 
-DisableTelemetry() {
-    global TelemetryState, TELEMETRY_STATE_PATH
-
-    StopTelemetry()
-
-    try {
-        if FileExist(TELEMETRY_STATE_PATH)
-            FileDelete(TELEMETRY_STATE_PATH)
-    } catch {
-    }
-
-    TelemetryState := Map(
-        "install_id", "",
-        "session_id", "",
-        "session_token", ""
-    )
-}
-
-SetTelemetryEnabled(enabled) {
-    global SETTINGS
-
-    if (!SETTINGS.Has("telemetry") || !(SETTINGS["telemetry"] is Map))
-        SETTINGS["telemetry"] := Map()
-
-    SETTINGS["telemetry"]["enabled"] := enabled ? 1 : 0
-    SaveSettingsFile()
-
-    if (enabled)
-        StartTelemetry()
-    else
-        DisableTelemetry()
-}
-
-IsTelemetryEnabled() {
-    global SETTINGS
-
-    if (!SETTINGS.Has("telemetry") || !(SETTINGS["telemetry"] is Map))
-        return true
-
-    if (!SETTINGS["telemetry"].Has("enabled"))
-        return true
-
-    return SETTINGS["telemetry"]["enabled"] ? true : false
-}
-
 TelemetryOnExit(ExitReason, ExitCode) {
     StopTelemetry()
     return 0
@@ -107,9 +59,6 @@ TelemetryOnExit(ExitReason, ExitCode) {
 
 TelemetryCreateSession() {
     global TelemetryState, FULL_VER
-
-    if !IsTelemetryEnabled()
-        return
 
     if !TelemetryIsUuid(TelemetryState["install_id"])
         return
@@ -141,11 +90,6 @@ TelemetryCreateSession() {
 
 TelemetryHeartbeat() {
     global TelemetryState
-
-    if !IsTelemetryEnabled() {
-        DisableTelemetry()
-        return
-    }
 
     sessionId := TelemetryState["session_id"]
     sessionToken := TelemetryState["session_token"]
