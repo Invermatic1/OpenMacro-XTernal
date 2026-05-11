@@ -1140,7 +1140,7 @@ class FishingController {
             return
         }
 
-        predictionScale := MAIN["prediction_strength"] * (1.0 - MAIN["resilience"])
+        predictionScale := MAIN["prediction_strength"]
         predicted := playerbarPos + (playerbarVelocity * predictionScale)
         predictedError := fishPos - predicted
 
