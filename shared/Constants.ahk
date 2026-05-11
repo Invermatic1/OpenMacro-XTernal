@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
 MAJOR_VER       := "v0"
-FULL_VER        := "v0.2.22"
+FULL_VER        := "v0.2.23"
 ROBLOX_VER      := "version-bf6344c9c23446bf"
 GITHUB_OWNER        := "termx3"
 GITHUB_REPO         := "OpenMacro-XTernal"
@@ -127,7 +127,6 @@ GetDefaultSettings() {
         "neutral_duty_cycle", 0.5,
         "prediction_strength", 7.5,
         "proportional_gain", 0.42,
-        "resilience", 0.0,
         "update_rate", 21,
         "velocity_damping", 38,
         "cast_mode", "short",
@@ -188,7 +187,8 @@ GetObsoleteMainSettings() {
         "auto_appraise_click_delay_ms",
         "auto_appraise_check_delay_ms",
         "auto_appraise_retry_delay_ms",
-        "auto_appraise_enabled"
+        "auto_appraise_enabled",
+		"resilience"
     ]
 }
 
