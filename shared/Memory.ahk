@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
 LoadOffsets() {
-    global OFFSETS, OFFSETS_PATH
+    global OFFSETS_PATH
 
     if (!FileExist(OFFSETS_PATH)) {
         throw Error("offsets.json not found at: " OFFSETS_PATH)
@@ -19,18 +19,118 @@ LoadOffsets() {
         throw Error("JSON parsing failed: " err.Message)
     }
 
-    if !(parsed is Map) {
-        temp := Map()
-        for k, v in parsed
-            temp[k] := v
-        OFFSETS := temp
-    } else {
-        OFFSETS := parsed
+    ApplyParsedOffsets(parsed)
+}
+
+ApplyParsedOffsets(parsed) {
+    global OFFSETS, OFFSETS_ROBLOX_VERSION
+
+    OFFSETS_ROBLOX_VERSION := (parsed.Has("Roblox Version")) ? parsed["Roblox Version"] : ""
+
+    if (!parsed.Has("Offsets"))
+        throw Error("'Offsets' section not found in offsets.json")
+
+    nested := parsed["Offsets"]
+    flat := Map()
+
+    for _, triple in OffsetRenameMap() {
+        category := triple[1], field := triple[2], legacy := triple[3]
+        if (!nested.Has(category))
+            continue
+        cat := nested[category]
+        if (!cat.Has(field))
+            continue
+        flat[legacy] := cat[field]
     }
-    
+
+    OFFSETS := flat
+
     if (!OFFSETS.Has("FakeDataModelPointer")) {
         throw Error("FakeDataModelPointer not found in offsets")
     }
+}
+
+TestOffsetsInMemory() {
+    global g_CachedDataModel
+    g_CachedDataModel := 0
+
+    dataModel := ResolveDataModelViaFakeDataModel()
+    if (!IsValidUserPointer(dataModel))
+        dataModel := ResolveDataModelViaVisualEngine()
+
+    if (!IsValidUserPointer(dataModel))
+        return false
+
+    try {
+        if (ReadClassName(dataModel) != "DataModel")
+            return false
+    } catch {
+        return false
+    }
+
+    foundWorkspace := false
+    foundPlayers := false
+
+    try {
+        for childPtr in ReadChildren(dataModel) {
+            cls := ReadClassName(childPtr)
+            if (cls = "Workspace")
+                foundWorkspace := true
+            else if (cls = "Players")
+                foundPlayers := true
+            if (foundWorkspace && foundPlayers)
+                break
+        }
+    } catch {
+        return false
+    }
+
+    return foundWorkspace && foundPlayers
+}
+
+TestAndHealOffsets() {
+    if (TestOffsetsInMemory())
+        return true
+
+    parsed := FetchRemoteOffsets()
+    if (!parsed)
+        throw Error("Offsets appear stale and remote update is unreachable. Please retry once online or update offsets.json manually.")
+
+    try {
+        ApplyParsedOffsets(parsed)
+    } catch as err {
+        throw Error("Remote offsets could not be applied: " err.Message)
+    }
+
+    if (!TestOffsetsInMemory())
+        throw Error("Remote offsets did not match the running Roblox build.")
+
+    BackupAndWriteOffsetsFile(parsed)
+    return true
+}
+
+OffsetRenameMap() {
+    static map := [
+        ["FakeDataModel",  "Pointer",            "FakeDataModelPointer"],
+        ["FakeDataModel",  "RealDataModel",      "FakeDataModelToDataModel"],
+        ["VisualEngine",   "Pointer",            "VisualEnginePointer"],
+        ["VisualEngine",   "FakeDataModel",      "VisualEngineToDataModel1"],
+        ["FakeDataModel",  "RealDataModel",      "VisualEngineToDataModel2"],
+        ["Player",         "LocalPlayer",        "LocalPlayer"],
+        ["Instance",       "Name",               "Name"],
+        ["Instance",       "ClassDescriptor",    "ClassDescriptor"],
+        ["Instance",       "ClassName",          "ClassDescriptorToClassName"],
+        ["Instance",       "ChildrenStart",      "Children"],
+        ["Instance",       "Parent",             "Parent"],
+        ["Misc",           "StringLength",       "StringLength"],
+        ["GuiObject",      "Text",               "TextLabelText"],
+        ["GuiObject",      "Visible",            "TextLabelVisible"],
+        ["GuiObject",      "Visible",            "FrameVisible"],
+        ["GuiObject",      "ScreenGui_Enabled",  "ScreenGuiEnabled"],
+        ["GuiObject",      "Position",           "FramePositionX"],
+        ["GuiObject",      "Size",               "FrameSizeX"]
+    ]
+    return map
 }
 
 AreOffsetsLoaded() {
@@ -109,6 +209,7 @@ AttachToRoblox(pid := 0) {
             throw Error("Failed to attach to Roblox.")
 
         LoadOffsets()
+        TestAndHealOffsets()
         ROD := GetHotbarRodName()
         return true
     } catch as err {

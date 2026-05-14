@@ -31,6 +31,7 @@ You do not retain ownership rights that allow you to license or distribute the c
 #Include shared\Telemetry.ahk
 #Include shared\Process.ahk
 #Include shared\Read.ahk
+#Include shared\OffsetsRemote.ahk
 #Include shared\Memory.ahk
 #Include shared\Totem.ahk
 #Include shared\Appraise.ahk
@@ -69,18 +70,14 @@ Initialize() {
 
     EnsureAppDataDirs()
     StartTelemetry()
-    StartAutoTotemDebugSession()
 
     if (rbxPid := GetRobloxPID()) {
         CheckRobloxVersionMismatch(rbxPid)
 
-        if !EnsureRobloxReady(false, true) {
-            AutoTotemDebugLog("startup attach failed; continuing unattached", false)
+        if !EnsureRobloxReady(false, true)
             MsgBox("Roblox was detected, but XTernal could not attach. The app will still open. Use Fix Roblox or start the macro again after Roblox is ready.", "Roblox Attachment")
-        }
     }
 
-    AutoTotemDebugLog("initialize complete | rod=[" ROD "]", false)
     SetTimer(MacroLoop, MAIN["update_rate"])
 }
 

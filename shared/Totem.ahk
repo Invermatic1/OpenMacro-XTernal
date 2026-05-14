@@ -59,88 +59,11 @@ UseHotbarSlot(slotKey) {
 UseEquippedHotbarItem() {
     Click()
     Sleep(75)
-    AutoTotemDebugLog("clicked equipped hotbar item")
     return true
 }
 
 GetAutoTotemWaitMs() {
     return 30000
-}
-
-GetAutoTotemDebugLogPath() {
-    global APPDATA_DIR
-    return APPDATA_DIR "\autototem.log"
-}
-
-StartAutoTotemDebugSession() {
-    global ENV
-    if (ENV != "dev")
-        return
-
-    try {
-        path := GetAutoTotemDebugLogPath()
-        if FileExist(path)
-            FileDelete(path)
-
-        FileAppend(
-            "=== Auto Totem Debug Session | " FormatTime(, "yyyy-MM-dd HH:mm:ss")
-            . " | wait_ms=" GetAutoTotemWaitMs() " ===`n",
-            path,
-            "UTF-8-RAW"
-        )
-    }
-}
-
-AutoTotemDebugLog(message, includeSnapshot := true) {
-    global ENV
-    if (ENV != "dev")
-        return
-
-    try {
-        line := FormatTime(, "HH:mm:ss") "." Format("{:03}", Mod(A_TickCount, 1000)) " | " message
-        if includeSnapshot
-            line .= " | " AutoTotemDebugMacroState()
-
-        FileAppend(line "`n", GetAutoTotemDebugLogPath(), "UTF-8-RAW")
-    }
-}
-
-AutoTotemDebugMacroState() {
-    global Macro
-
-    return "phase=" Macro.phase
-        . " totemState=" Macro.totemState
-        . " pending=" Macro.totemPending
-        . " blocked=" Macro.totemBlockedUntilCatchEnd
-        . " nightCovered=" Macro.totemNightCovered
-        . " needsRod=" Macro.totemNeedsRodReequip
-}
-
-AutoTotemDebugClean(text) {
-    text := StrReplace(text, "`r", " ")
-    text := StrReplace(text, "`n", " ")
-    text := StrReplace(text, "|", "/")
-    return text
-}
-
-AutoTotemDebugProbe(context) {
-    global ENV
-    if (ENV != "dev")
-        return
-
-    cycleText := AutoTotemDebugClean(GetWorldStatusText("4_cycle"))
-    eventText := AutoTotemDebugClean(GetWorldStatusText("2_event"))
-    weatherText := AutoTotemDebugClean(GetWorldStatusText("3_weather"))
-    equippedTool := AutoTotemDebugClean(GetEquippedToolName())
-
-    AutoTotemDebugLog(
-        context
-        . " | cycle=[" cycleText "]"
-        . " event=[" eventText "]"
-        . " weather=[" weatherText "]"
-        . " equipped=[" equippedTool "]",
-        false
-    )
 }
 
 GetCharacterModel() {
@@ -198,32 +121,23 @@ IsRodEquipped() {
 }
 
 EnsureRodEquipped() {
-    if IsRodEquipped() {
-        AutoTotemDebugLog("rod already equipped, skipping slot 1")
+    if IsRodEquipped()
         return true
-    }
 
-    ok := SelectHotbarSlot("1")
-    AutoTotemDebugLog("rod not equipped, sent slot 1 success=" ok)
-    return ok
+    return SelectHotbarSlot("1")
 }
 
 TryUseHotbarItem(itemName) {
     slotKey := GetHotbarItemSlotKey(itemName)
-    if (slotKey = "") {
-        AutoTotemDebugLog("missing hotbar item: " itemName)
+    if (slotKey = "")
         return false
-    }
 
     Loop 2 {
-        attempt := A_Index
         equippedBefore := GetEquippedToolName()
 
         if (equippedBefore != itemName) {
-            if !SelectHotbarSlot(slotKey) {
-                AutoTotemDebugLog("failed selecting hotbar item: " itemName " @ slot " slotKey " attempt=" attempt)
+            if !SelectHotbarSlot(slotKey)
                 return false
-            }
 
             Sleep(175)
         }
@@ -232,13 +146,6 @@ TryUseHotbarItem(itemName) {
         Sleep(100)
 
         equippedAfter := GetEquippedToolName()
-        AutoTotemDebugLog(
-            "used hotbar item: " itemName
-            . " @ slot " slotKey
-            . " attempt=" attempt
-            . " before=[" equippedBefore "]"
-            . " after=[" equippedAfter "]"
-        )
 
         if (equippedAfter = itemName || equippedBefore = itemName)
             return true
@@ -246,7 +153,6 @@ TryUseHotbarItem(itemName) {
         Sleep(125)
     }
 
-    AutoTotemDebugLog("failed to confirm hotbar item use: " itemName " @ slot " slotKey)
     return false
 }
 

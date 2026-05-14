@@ -271,8 +271,6 @@ IsAutoTotemDue() {
             return false
 
         Macro.totemNightCovered := false
-        AutoTotemDebugLog("night coverage expired; cycle left night")
-        AutoTotemDebugProbe("expire probe")
     }
 
     return true
@@ -287,7 +285,6 @@ UpdateAutoTotem() {
             Controller.Reset()
             if (Macro.totemState != "IDLE" && Macro.totemNeedsRodReequip)
                 SelectHotbarSlot("1")
-            AutoTotemDebugLog("auto totem runtime disabled, clearing control")
             ResetAutoTotemControl()
         }
         return false
@@ -306,7 +303,6 @@ UpdateAutoTotem() {
         return false
 
     if (Macro.totemPending && IsAutoTotemBoundary()) {
-        AutoTotemDebugLog("pending auto totem resumed at safe boundary")
         BeginAutoTotemWorkflow()
         return true
     }
@@ -316,13 +312,11 @@ UpdateAutoTotem() {
 
     if (IsAutoTotemDue()) {
         if (IsAutoTotemBoundary()) {
-            AutoTotemDebugLog("auto totem due at safe boundary")
             BeginAutoTotemWorkflow()
             return true
         }
 
         if !Macro.totemPending {
-            AutoTotemDebugLog("auto totem due during active cycle, deferring to boundary")
             if (Macro.phase != "OFF")
                 Macro.totemNeedsSettleDelay := true
         }
@@ -346,11 +340,9 @@ BeginAutoTotemWorkflow() {
 
     ReleaseMouse()
     Controller.Reset()
-    AutoTotemDebugLog("begin auto totem workflow")
     if (Macro.totemNeedsSettleDelay) {
         Macro.totemState := "TOTEM_SETTLE"
         Macro.totemWaitStartedAt := A_TickCount
-        AutoTotemDebugLog("waiting cycle start delay before totem use")
         return
     }
 
@@ -360,16 +352,12 @@ BeginAutoTotemWorkflow() {
 RunAutoTotemWorkflowStep() {
     global Macro
 
-    AutoTotemDebugProbe("workflow branch probe")
-
     if (IsAuroraActive()) {
-        AutoTotemDebugLog("aurora already active, completing workflow")
         CompleteAutoTotemWorkflow(true)
         return
     }
 
     if (IsNightCycle()) {
-        AutoTotemDebugLog("night detected, using aurora totem")
         if (!TryUseAutoTotemItem("Aurora Totem")) {
             CompleteAutoTotemWorkflow(false)
             return
@@ -380,7 +368,6 @@ RunAutoTotemWorkflowStep() {
         return
     }
 
-    AutoTotemDebugLog("night not detected, using sundial totem")
     if (!TryUseAutoTotemItem("Sundial Totem")) {
         CompleteAutoTotemWorkflow(false)
         return
@@ -394,7 +381,6 @@ UpdateAutoTotemState() {
     global Macro
 
     if (IsAuroraActive()) {
-        AutoTotemDebugLog("aurora detected while waiting")
         CompleteAutoTotemWorkflow(true)
         return
     }
@@ -406,15 +392,12 @@ UpdateAutoTotemState() {
 
             Macro.totemNeedsSettleDelay := false
             Macro.totemWaitStartedAt := 0
-            AutoTotemDebugLog("cycle start delay cleared")
             RunAutoTotemWorkflowStep()
             return
 
         case "TOTEM_WAIT_NIGHT":
             if (IsNightCycle()) {
                 Macro.totemRetryCount := 0
-                AutoTotemDebugLog("night detected after sundial, using aurora totem")
-                AutoTotemDebugProbe("night detected probe")
 
                 if (!TryUseAutoTotemItem("Aurora Totem")) {
                     CompleteAutoTotemWorkflow(false)
@@ -430,14 +413,10 @@ UpdateAutoTotemState() {
                 return
 
             if (Macro.totemRetryCount >= 1) {
-                AutoTotemDebugLog("night wait timed out after retry, failing workflow")
-                AutoTotemDebugProbe("night timeout final probe")
                 CompleteAutoTotemWorkflow(false)
                 return
             }
 
-            AutoTotemDebugLog("night wait timed out, retrying sundial use")
-            AutoTotemDebugProbe("night timeout retry probe")
             if (!TryUseAutoTotemItem("Sundial Totem")) {
                 CompleteAutoTotemWorkflow(false)
                 return
@@ -451,14 +430,10 @@ UpdateAutoTotemState() {
                 return
 
             if (Macro.totemRetryCount >= 1) {
-                AutoTotemDebugLog("aurora wait timed out after retry, failing workflow")
-                AutoTotemDebugProbe("aurora timeout final probe")
                 CompleteAutoTotemWorkflow(false)
                 return
             }
 
-            AutoTotemDebugLog("aurora wait timed out, retrying aurora use")
-            AutoTotemDebugProbe("aurora timeout retry probe")
             if (!TryUseAutoTotemItem("Aurora Totem")) {
                 CompleteAutoTotemWorkflow(false)
                 return
@@ -483,13 +458,11 @@ CompleteAutoTotemWorkflow(success := false) {
     global Macro, MAIN
 
     needsRodReequip := Macro.totemNeedsRodReequip
-    AutoTotemDebugLog("complete auto totem workflow success=" success " reEquip=" needsRodReequip)
 
     if (success) {
         Macro.lastTotemSuccessAt := A_TickCount
         Macro.totemNightCovered := true
         Macro.totemPopCount += 1
-        AutoTotemDebugLog("marked current night as covered")
     } else if (MAIN["webhook_alert_totem_failed"]) {
         SendInstantAlert("Auto Totem Failed", "The auto totem workflow could not complete successfully.")
     }
@@ -503,7 +476,6 @@ CompleteAutoTotemWorkflow(success := false) {
         Macro.totemBlockedUntilCatchEnd := true
 
     if (Macro.cycleEnabled && Macro.phase = "CASTING") {
-        AutoTotemDebugLog("reinitializing cast cycle after auto totem")
         InitializeCastCycle()
     }
 }
